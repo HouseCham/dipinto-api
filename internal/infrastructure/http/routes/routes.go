@@ -8,6 +8,7 @@ import (
 // SetupRoutes sets up the routes for the application
 func SetupRoutes(app *fiber.App, userHandler *handlers.UserHandler) {
 	// user routes
+	app.Use(userHandler.MiddlewareService.VerifyOrigin())
 	app.Post("/api/v1/users", userHandler.InsertUser)
 
 	userRoutes := app.Group("/api/v1/users")

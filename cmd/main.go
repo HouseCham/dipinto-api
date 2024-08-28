@@ -36,9 +36,11 @@ func main() {
 	
 	// Set up the Fiber app
 	app := fiber.New()
+
+	log.Infof("Client origin: %s", cfg.Client.Origin)
 	// Setting up CORS middleware
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: []string{"*"},
+		AllowOrigins: []string{cfg.Client.Origin},
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
 	}))
 	log.Info("Fiber app is set up")
