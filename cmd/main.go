@@ -7,7 +7,7 @@ import (
 	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/db"
 	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/middleware"
 	v "github.com/HouseCham/dipinto-api/internal/domain/dependencies/validator"
-	"github.com/HouseCham/dipinto-api/internal/domain/services"
+	"github.com/HouseCham/dipinto-api/internal/application/services"
 	"github.com/HouseCham/dipinto-api/internal/infrastructure/config"
 	"github.com/HouseCham/dipinto-api/internal/infrastructure/http/handlers"
 	"github.com/HouseCham/dipinto-api/internal/infrastructure/http/routes"

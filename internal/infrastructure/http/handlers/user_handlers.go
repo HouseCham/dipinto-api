@@ -4,7 +4,7 @@ import (
 	"strconv"
 
 	"github.com/HouseCham/dipinto-api/internal/domain/model"
-	"github.com/HouseCham/dipinto-api/internal/domain/services"
+	"github.com/HouseCham/dipinto-api/internal/application/services"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/log"
 )
