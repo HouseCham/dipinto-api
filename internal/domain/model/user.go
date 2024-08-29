@@ -2,6 +2,7 @@ package model
 
 import "time"
 
+// User represents the user model
 type User struct {
 	ID        uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
 	Name      string    `gorm:"not null" json:"name" validate:"required,lettersAccentsBlank"`
@@ -11,4 +12,9 @@ type User struct {
 	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 	DeletedAt *time.Time
+}
+// LoginUser represents the user model for login
+type LoginUser struct {
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required"`
 }

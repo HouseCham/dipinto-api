@@ -19,6 +19,7 @@ func NewRepositoryService(db *db.Database) *RepositoryService {
 }
 
 // #region USER
+
 // InsertUser inserts a new user into the database
 func (r *RepositoryService) InsertUser(newUser *model.User) (uint64, error) {
 	dbResponse := r.repo.DB.Omit("ID","CreatedAt","UpdatedAt","DeletedAt").Create(&newUser)
@@ -32,7 +33,7 @@ func (r *RepositoryService) InsertUser(newUser *model.User) (uint64, error) {
 // GetAllUsers retrieves all users from the database
 func (r *RepositoryService) GetAllUsers() ([]model.User, error) {
 	var users []model.User
-	dbResponse := r.repo.DB.Find(&users)
+	dbResponse := r.repo.DB.Where("deleted_at IS NULL").Omit("CreatedAt","UpdatedAt","DeletedAt").Find(&users)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve users from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error
@@ -43,7 +44,7 @@ func (r *RepositoryService) GetAllUsers() ([]model.User, error) {
 // GetUser retrieves a user from the database
 func (r *RepositoryService) GetUserById(userID uint64) (*model.User, error) {
 	var user model.User
-	dbResponse := r.repo.DB.First(&user, userID)
+	dbResponse := r.repo.DB.Where("deleted_at IS NULL").Omit("DeletedAt").First(&user, userID)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve user from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error
@@ -54,7 +55,7 @@ func (r *RepositoryService) GetUserById(userID uint64) (*model.User, error) {
 // GetUserByEmail retrieves a user from the database by email
 func (r *RepositoryService) GetUserByEmail(email string) (*model.User, error) {
 	var user model.User
-	dbResponse := r.repo.DB.Where("email = ?", email).First(&user)
+	dbResponse := r.repo.DB.Where("deleted_at IS NULL").Where("email = ?", email).Omit("CreatedAt","UpdatedAt","DeletedAt").First(&user)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve user from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error
@@ -64,17 +65,10 @@ func (r *RepositoryService) GetUserByEmail(email string) (*model.User, error) {
 
 // UpdateUser updates a user in the database
 func (r *RepositoryService) UpdateUser(updatedUser *model.User) error {
-	dbResponse := r.repo.DB.Save(updatedUser)
+	dbResponse := r.repo.DB.Where("deleted_at IS NULL").Save(updatedUser)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to update user in the database: %v", dbResponse.Error)
 		return dbResponse.Error
 	}
 	return nil
-}
-
-// ValidateEmailUsed checks if an email is already used within the database and returns true if it is
-func (r *RepositoryService) ValidateEmailUsed(email string) bool {
-	var user model.User
-	dbResponse := r.repo.DB.Where("email = ?", email).First(&user)
-	return dbResponse.Error == nil
 }

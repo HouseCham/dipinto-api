@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"strconv"
+
 	"github.com/HouseCham/dipinto-api/internal/domain/model"
 	"github.com/HouseCham/dipinto-api/internal/domain/services"
 	"github.com/gofiber/fiber/v3"
@@ -58,9 +60,29 @@ func (h *UserHandler) InsertUser(c fiber.Ctx) error {
 		Data:       userID,
 	})
 }
-
-func (h *UserHandler) GetUser(c fiber.Ctx) error {
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"message": "Hello World for GET user",
+// GetUserById is a handler function that retrieves a user from the database by ID
+func (h *UserHandler) GetUserById(c fiber.Ctx) error {
+	idStr := c.Params("id")
+	// convert to uint64
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil {
+		log.Warnf("Failed to parse user ID: %v", err)
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Invalid user ID",
+		})
+	}
+	// Retrieve the user from the database
+	user, err := h.RepositoryService.GetUserById(id)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve user from the database",
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusOK,
+		Message:    "User retrieved successfully",
+		Data:       user,
 	})
 }
