@@ -16,3 +16,12 @@ func NewAuthService(auth *auth.AuthService) *AuthService {
 		security: &security.SecurityService{},
 	}
 }
+
+// HashPassword hashes a password using bcrypt
+func (a *AuthService) HashPassword(password string) (string, error) {
+	return a.security.HashPassword(password)
+}
+// ValidatePassword validates a password against a hashed password
+func (a *AuthService) ValidatePassword(password, hashedPassword string) error {
+	return a.security.CheckPassword(password, hashedPassword)
+}

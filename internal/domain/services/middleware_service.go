@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
+// MiddlewareService contains the business logic related to the middleware.
 type MiddlewareService struct {
 	middleware *middleware.MiddlewareService
 }

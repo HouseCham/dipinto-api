@@ -4,12 +4,14 @@ import (
 	"fmt"
 
 	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/auth"
-	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/middleware"
 	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/db"
+	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/middleware"
+	v "github.com/HouseCham/dipinto-api/internal/domain/dependencies/validator"
 	"github.com/HouseCham/dipinto-api/internal/domain/services"
 	"github.com/HouseCham/dipinto-api/internal/infrastructure/config"
 	"github.com/HouseCham/dipinto-api/internal/infrastructure/http/handlers"
 	"github.com/HouseCham/dipinto-api/internal/infrastructure/http/routes"
+	"github.com/go-playground/validator/v10"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/log"
 	"github.com/gofiber/fiber/v3/middleware/cors"
@@ -42,7 +44,7 @@ func main() {
 	}))
 	log.Info("Fiber app is set up")
 
-	userHandler := *injectDependencies(cfg, database)
+	userHandler := *injectDependencies(cfg, database, v.SetUpValidator())
 	log.Info("Handlers are set up")
 	
 	// Set up the routes and handlers for the app
@@ -54,15 +56,17 @@ func main() {
 }
 
 // injectDependencies injects the dependencies into the handlers
-func injectDependencies(cfg *config.Config, database *db.Database) *handlers.UserHandler {
+func injectDependencies(cfg *config.Config, database *db.Database, v *validator.Validate) *handlers.UserHandler {
 	// Set up the services for dependency injection
 	authService := services.NewAuthService(auth.SetUpAuthService(cfg))
 	middlewareService := services.NewMiddlewareService(middleware.SetupMiddlewareService(cfg))
 	repositoryService := services.NewRepositoryService(database)
+	modelService := services.NewModelService(v)
 	// Set up the http handlers
 	return &handlers.UserHandler{
 		AuthService: authService,
 		MiddlewareService: middlewareService,
 		RepositoryService: repositoryService,
+		ModelService: modelService,
 	}
 }
