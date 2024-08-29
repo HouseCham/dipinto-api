@@ -1,17 +1,15 @@
 package auth
 
+import "fmt"
+
 import (
 	"time"
 
+	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/middleware"
+	"github.com/HouseCham/dipinto-api/internal/domain/model"
 	"github.com/HouseCham/dipinto-api/internal/infrastructure/config"
 	"github.com/dgrijalva/jwt-go"
 )
-
-// Claims structure
-type Claims struct {
-	Username string `json:"username"`
-	jwt.StandardClaims
-}
 
 type AuthService struct {
 	jwtKey []byte
@@ -26,18 +24,19 @@ func SetUpAuthService(config *config.Config) *AuthService {
 }
 
 // CreateToken creates a JWT token with the given username
-func (auth *AuthService) CreateToken(username string, userID int64) (string, error) {
+func (auth *AuthService) CreateToken(user *model.User) (string, error) {
 	// Set the expiration time of the token
 	expirationTime := time.Now().Add(24 * time.Hour) // Token expires in 24 hours
 
 	// Create the claims
-	claims := &Claims{
-		Username: username,
+	claims := &middleware.Claims{
+		ID:       fmt.Sprint(user.ID),
+		Username: user.Name,
+		Role:     user.Role,
 		StandardClaims: jwt.StandardClaims{
-			Id:        string(rune(userID)),
 			ExpiresAt: expirationTime.Unix(),
 			IssuedAt:  time.Now().Unix(),
-			Issuer:    "user-service",
+			Issuer:    "dipinto-api",
 		},
 	}
 

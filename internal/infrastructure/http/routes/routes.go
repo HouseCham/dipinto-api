@@ -12,6 +12,8 @@ func SetupRoutes(app *fiber.App, userHandler *handlers.UserHandler) {
 	app.Post("/api/v1/users", userHandler.InsertUser)
 
 	userRoutes := app.Group("/api/v1/users")
-	// userRoutes.Use(userHandler.MiddlewareService.VerifyJWT())
-	userRoutes.Get("/:id", userHandler.GetUserById)
+	userRoutes.Post("/login", userHandler.LoginUser)
+
+	userRoutes.Use(userHandler.MiddlewareService.VerifyJWT())
+	userRoutes.Get("/", userHandler.GetUserById)
 }

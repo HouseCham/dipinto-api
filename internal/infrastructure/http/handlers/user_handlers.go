@@ -3,8 +3,9 @@ package handlers
 import (
 	"strconv"
 
-	"github.com/HouseCham/dipinto-api/internal/domain/model"
 	"github.com/HouseCham/dipinto-api/internal/application/services"
+	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/middleware"
+	"github.com/HouseCham/dipinto-api/internal/domain/model"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/log"
 )
@@ -60,20 +61,28 @@ func (h *UserHandler) InsertUser(c fiber.Ctx) error {
 		Data:       userID,
 	})
 }
+
 // GetUserById is a handler function that retrieves a user from the database by ID
 func (h *UserHandler) GetUserById(c fiber.Ctx) error {
-	idStr := c.Params("id")
-	// convert to uint64
-	id, err := strconv.ParseUint(idStr, 10, 64)
+	claims, ok := c.Locals("claims").(*middleware.Claims)
+	if !ok {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve user claims",
+		})
+	}
+	log.Infof("Claims: %v", claims)
+
+	// parse string id to uint64
+	userID, err := strconv.ParseUint(claims.ID, 10, 64)
 	if err != nil {
-		log.Warnf("Failed to parse user ID: %v", err)
 		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
 			StatusCode: fiber.StatusBadRequest,
 			Message:    "Invalid user ID",
 		})
 	}
 	// Retrieve the user from the database
-	user, err := h.RepositoryService.GetUserById(id)
+	user, err := h.RepositoryService.GetUserById(userID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
 			StatusCode: fiber.StatusInternalServerError,
@@ -84,5 +93,56 @@ func (h *UserHandler) GetUserById(c fiber.Ctx) error {
 		StatusCode: fiber.StatusOK,
 		Message:    "User retrieved successfully",
 		Data:       user,
+	})
+}
+
+// LoginUser is a handler function that logs a user into the application
+func (h *UserHandler) LoginUser(c fiber.Ctx) error {
+	var request model.LoginUser
+	if err := c.Bind().JSON(&request); err != nil {
+		log.Warnf("Failed to parse user request body: %v", err)
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Error parsing user request body",
+		})
+	}
+	// Validate the request body
+	if errors := h.ModelService.ValidateRequestBody(request); errors != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Invalid request body",
+			Data:       errors,
+		})
+	}
+	// Retrieve the user from the database
+	dbUser, err := h.RepositoryService.GetUserByEmail(request.Email)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve user information",
+		})
+	}
+
+	// Compare the user's password with the hashed password in the database
+	if err := h.AuthService.ValidatePassword(request.Password, dbUser.Password); err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusUnauthorized,
+			Message:    "Incorrect email or password",
+		})
+	}
+
+	// Generate a JWT token
+	token, err := h.AuthService.GenerateToken(dbUser)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to generate token",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusOK,
+		Message:    "User logged in successfully",
+		Data:       token,
 	})
 }

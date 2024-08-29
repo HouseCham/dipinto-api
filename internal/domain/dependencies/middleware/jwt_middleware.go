@@ -16,15 +16,17 @@ type MiddlewareService struct {
 
 // Claims represents the JWT claims
 type Claims struct {
+	ID       string `json:"id"`
 	Username string `json:"username"`
+	Role     string `json:"role"`
 	jwt.StandardClaims
 }
 
 // SetupMiddlewareService creates a new MiddlewareService
 func SetupMiddlewareService(config *config.Config) *MiddlewareService {
 	middlewareService := MiddlewareService{
-		jwtKey: []byte(config.JWT.SecretKey),
-        validOrigin: config.Client.Origin,
+		jwtKey:      []byte(config.JWT.SecretKey),
+		validOrigin: config.Client.Origin,
 	}
 	return &middlewareService
 }
@@ -60,7 +62,7 @@ func (m *MiddlewareService) ValidateToken(tokenStr string) (*Claims, error) {
 	}
 
 	// Check if the claim ID is greater than 0
-	if claims.Id == "" || claims.Id == "0" {
+	if claims.ID == "" || claims.ID == "0" {
 		return nil, errors.New("invalid claim ID")
 	}
 

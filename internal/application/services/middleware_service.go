@@ -25,6 +25,7 @@ func (m *MiddlewareService) VerifyJWT() fiber.Handler {
 		tokenStr := c.Get("Authorization")
 		if tokenStr == "" {
 			return c.Status(fiber.StatusUnauthorized).JSON(model.HTTPResponse{
+				Message:   "No token provided",
 				StatusCode: fiber.StatusUnauthorized,
 			})
 		}
@@ -34,6 +35,7 @@ func (m *MiddlewareService) VerifyJWT() fiber.Handler {
 			tokenStr = tokenStr[7:]
 		} else {
 			return c.Status(fiber.StatusUnauthorized).JSON(model.HTTPResponse{
+				Message:  "Invalid token format",
 				StatusCode: fiber.StatusUnauthorized,
 			})
 		}
@@ -42,6 +44,7 @@ func (m *MiddlewareService) VerifyJWT() fiber.Handler {
 		claims, err := m.middleware.ValidateToken(tokenStr)
 		if err != nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(model.HTTPResponse{
+				Message:  err.Error(),
 				StatusCode: fiber.StatusUnauthorized,
 			})
 		}
