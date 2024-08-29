@@ -1,13 +1,14 @@
 package handlers
 
 import (
-	"github.com/HouseCham/dipinto-api/internal/application/services"
+	"github.com/HouseCham/dipinto-api/internal/domain/services"
 	"github.com/gofiber/fiber/v3"
 )
 
 type UserHandler struct {
 	AuthService *services.AuthService
 	MiddlewareService *services.MiddlewareService
+	RepositoryService *services.RepositoryService
 }
 
 func (h *UserHandler) InsertUser(c fiber.Ctx) error {

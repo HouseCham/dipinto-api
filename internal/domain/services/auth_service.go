@@ -1,8 +1,8 @@
 package services
 
 import (
-	"github.com/HouseCham/dipinto-api/internal/domain/auth"
-	"github.com/HouseCham/dipinto-api/internal/domain/security"
+	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/auth"
+	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/security"
 )
 // AuthService contains the business logic related to authentication.
 type AuthService struct {

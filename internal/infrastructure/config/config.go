@@ -12,11 +12,7 @@ type Config struct {
 		Port int
 	}
 	Database struct {
-		Host     string
-		Port     int
-		User     string
-		Password string
-		DBName   string
+		DNS string
 	}
 	JWT struct {
 		SecretKey string

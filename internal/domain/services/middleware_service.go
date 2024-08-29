@@ -1,10 +1,9 @@
 package services
 
 import (
-	"github.com/HouseCham/dipinto-api/internal/domain/middleware"
+	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/middleware"
 	"github.com/HouseCham/dipinto-api/internal/domain/model"
 	"github.com/gofiber/fiber/v3"
-	"github.com/gofiber/fiber/v3/log"
 )
 
 type MiddlewareService struct {
@@ -59,7 +58,6 @@ func (m *MiddlewareService) VerifyOrigin() fiber.Handler {
 	return func(c fiber.Ctx) error {
 		// Get the Origin header
 		origin := c.Get("Origin")
-        log.Infof("Origin: %s", origin)
 		// Validate the Origin header
 		if !(m.middleware.ValidateOrigin(origin)) {
 			return c.Status(fiber.StatusUnauthorized).JSON(model.HTTPResponse{
