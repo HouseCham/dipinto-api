@@ -1,28 +1,38 @@
 package model
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type Product struct {
-    ID            uint64    `gorm:"primaryKey;autoIncrement"`
-    Name          string    `gorm:"not null"`
-    Description   string
-    Price         float64   `gorm:"not null;type:numeric(10,2)"`
-    StockQuantity int       `gorm:"not null"`
-    CategoryID    uint64    `gorm:"not null"`
-    Category      Category  `gorm:"foreignKey:CategoryID"`
-    CreatedAt     time.Time `gorm:"autoCreateTime"`
-    UpdatedAt     time.Time `gorm:"autoUpdateTime"`
-    DeletedAt     *time.Time
+	ID          uint64          `gorm:"primaryKey;autoIncrement"`
+	CategoryID  uint64          `gorm:"not null" validate:"required,numeric"`
+	Slug        string          `gorm:"unique;not null" validate:"required,slug"`
+	Name        string          `gorm:"not null" validate:"required"`
+	Description string          `gorm:"type:text" validate:"required"`
+	Images      json.RawMessage `gorm:"type:jsonb"`
+	CreatedAt   time.Time       `gorm:"default:now()"`
+	UpdatedAt   time.Time       `gorm:"default:now()"`
+	DeletedAt   *time.Time
 }
 
 type ProductSize struct {
-    ID            uint64    `gorm:"primaryKey;autoIncrement"`
-    ProductID     uint64    `gorm:"not null"`
-    Product       Product   `gorm:"foreignKey:ProductID"`
-    Size          string    `gorm:"not null"`
-    Price         float64   `gorm:"not null;type:numeric(10,2)"`
-    StockQuantity int       `gorm:"not null"`
-    CreatedAt     time.Time `gorm:"autoCreateTime"`
-    UpdatedAt     time.Time `gorm:"autoUpdateTime"`
-    DeletedAt     *time.Time
+	ID          uint64    `gorm:"primaryKey;autoIncrement"`
+	ProductID   uint64    `gorm:"not null" validate:"required,numeric"`
+	IsAvailable bool      `gorm:"not null" validate:"boolean"`
+	SizeSlug    string    `gorm:"not null" validate:"required,slug"`
+	Size        string    `gorm:"not null" validate:"required"`
+	Price       float64   `gorm:"type:numeric(10,2);not null" validate:"required,numeric"`
+	Discount    float64   `gorm:"type:numeric" validate:"numeric"`
+	CreatedAt   time.Time `gorm:"default:now()"`
+	UpdatedAt   time.Time `gorm:"default:now()"`
+	DeletedAt   *time.Time
+}
+
+func (ProductSize) TableName() string {
+	return "product_sizes"
+}
+func (Product) TableName() string {
+	return "products"
 }

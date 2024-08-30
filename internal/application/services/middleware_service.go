@@ -72,3 +72,23 @@ func (m *MiddlewareService) VerifyOrigin() fiber.Handler {
 		return c.Next()
 	}
 }
+
+// VerifyRole is a Fiber middleware function that checks if the user has the required role
+func (m *MiddlewareService) VerifyAdmin() fiber.Handler {
+	return func(c fiber.Ctx) error {
+		claims, ok := c.Locals("claims").(*middleware.Claims)
+		if !ok {
+			return c.Status(fiber.StatusUnauthorized).JSON(model.HTTPResponse{
+				Message:    "Invalid token claims",
+				StatusCode: fiber.StatusUnauthorized,
+			})
+		}
+		if (claims.Role == "" || claims.Role != "admin") {
+			return c.Status(fiber.StatusForbidden).JSON(model.HTTPResponse{
+				Message:    "Insufficient permissions",
+				StatusCode: fiber.StatusForbidden,
+			})
+		}
+		return c.Next()
+	}
+}

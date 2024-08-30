@@ -1,6 +1,8 @@
 package services
 
 import (
+	"encoding/json"
+
 	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/db"
 	"github.com/HouseCham/dipinto-api/internal/domain/model"
 	"github.com/gofiber/fiber/v3/log"
@@ -71,4 +73,53 @@ func (r *RepositoryService) UpdateUser(updatedUser *model.User) error {
 		return dbResponse.Error
 	}
 	return nil
+}
+
+//#region PRODUCT
+
+// InsertProduct inserts a new product into the database
+func (r *RepositoryService) InsertProduct(newProduct *model.Product, sizes *[]model.ProductSize) (uint64, error) {
+	// Marshal images to JSON
+    imagesJSON, err := json.Marshal(newProduct.Images)
+    if err != nil {
+        return 0, err
+    }
+
+	// Set the images field to the marshaled JSON
+    newProduct.Images = imagesJSON
+	
+	// start a new transaction
+	tx := r.repo.DB.Begin()
+	if tx.Error != nil {
+		log.Warnf("Failed to begin transaction: %v", tx.Error)
+		return 0, tx.Error
+	}
+
+	// Insert the product
+	dbResponse := tx.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&newProduct)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to insert product into the database: %v", dbResponse.Error)
+		tx.Rollback()
+		return 0, dbResponse.Error
+	}
+
+	// Insert the product sizes
+	for _, size := range *sizes {
+		size.ProductID = newProduct.ID
+		dbResponse := tx.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&size)
+		if dbResponse.Error != nil {
+			log.Warnf("Failed to insert product size into the database: %v", dbResponse.Error)
+			tx.Rollback()
+			return 0, dbResponse.Error
+		}
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		log.Warnf("Failed to commit transaction: %v", err)
+		tx.Rollback()
+		return 0, err
+	}
+
+	return newProduct.ID, nil
 }

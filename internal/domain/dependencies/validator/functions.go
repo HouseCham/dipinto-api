@@ -67,3 +67,13 @@ func validateRole(fl validator.FieldLevel) bool {
 	}
 	return false
 }
+
+// validateSlug validates that the slug inserted is a valid slug
+func validateSlug(fl validator.FieldLevel) bool {
+	slug := fl.Field().String()
+	if slug == "" {
+		return true
+	}
+	match, _ := regexp.MatchString("^[a-z0-9]+(?:-[a-z0-9]+)*$", slug)
+	return match
+}

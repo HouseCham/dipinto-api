@@ -22,6 +22,7 @@ func SetUpValidator() *validator.Validate {
 	customValidator.RegisterValidation("lettersAccents", validateLettersAndAccents)
 	customValidator.RegisterValidation("lettersAccentsBlank", validateLettersAndAccentsBlank)
 	customValidator.RegisterValidation("role", validateRole)
+	customValidator.RegisterValidation("slug", validateSlug)
 
 	return customValidator
 }
@@ -59,6 +60,7 @@ var errorMessages = map[string]string{
 	"min":                 "The field %s is below the minimum length of characters allowed.",
 	"numeric":             "The field %s must be a valid number.",
 	"role":                "The field %s must be either 'admin' or 'customer'.",
+	"slug":                "The field %s must be a valid slug.",
 }
 
 // validationFields is the map that contains the fields that will be validated
@@ -66,7 +68,7 @@ var validationFields = map[string]string{
 	/* ===== User ===== */
 	"ID":           "id",
 	"OwnerID":      "owner id",
-	"Username":     "username",
+	"Name":         "name",
 	"Email":        "email",
 	"PasswordHash": "password",
 	"FirstName":    "name",
@@ -86,4 +88,17 @@ var validationFields = map[string]string{
 	"IntNumber": "interior number",
 	"Reference": "reference",
 	"Country":   "country",
+
+	/* ===== Product ===== */
+	"CategoryID":  "category id",
+	"Slug":        "slug",
+	"SizeSlug":    "size slug from product-size information",
+	"Size":        "size from product-size information",
+	"Price":       "price from product-size information",
+	"IsAvailable": "availability from product-size information",
+
+	/* ===== Images ===== */
+	"Alt":       "alt from image information",
+	"URL":       "url from image information",
+	"IsPrimary": "is-primary from image information",
 }
