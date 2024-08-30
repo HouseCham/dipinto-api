@@ -70,6 +70,31 @@ func (h *ProductHandler) GetAllProductsCatalogue(c fiber.Ctx) error {
 	})
 }
 
+// GetProductBySlug is a handler function that retrieves a product by its slug
+func (h *ProductHandler) GetProductBySlug(c fiber.Ctx) error {
+	slug := c.Params("slug")
+	if slug == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Invalid slug",
+		})
+	}
+	product, sizes, err := h.RepositoryService.GetProductBySlug(slug)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusNotFound,
+			Message:    "Product not found",
+		})
+	}
+	// Parse the product model to a DTO
+	productDto := utils.ParseProductModelToDTO(product, sizes)
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		Message:    "Product retrieved successfully",
+		StatusCode: fiber.StatusOK,
+		Data:       productDto,
+	})
+}
+
 // validateProductStruct isolates the validation logic for the product struct
 func validateProductStruct(product *model.Product, sizes *[]model.ProductSize, imagesDto []dto.ImageDTO, h *ProductHandler) *model.HTTPResponse {
 	if errors := h.ModelService.ValidateRequestBody(product); errors != nil {

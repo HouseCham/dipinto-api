@@ -7,12 +7,12 @@ type ProductDTO struct {
 	Slug        string        `json:"slug"`
 	Name        string        `json:"name"`
 	Description string        `json:"description"`
-	Sizes       []SizeDTO     `json:"sizes"`
+	Sizes       []ProductSizeDTO     `json:"sizes"`
 	Images      []ImageDTO `json:"images"`
 }
 
-// SizeDTO is a data transfer object for the product size model
-type SizeDTO struct {
+// ProductSizeDTO is a data transfer object for the product size model
+type ProductSizeDTO struct {
 	ID          uint64  `json:"id"`
 	IsAvailable bool    `json:"is_available"`
 	SizeSlug    string  `json:"size_slug"`

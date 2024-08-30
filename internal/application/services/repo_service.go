@@ -150,3 +150,22 @@ func (r *RepositoryService) GetAllProductsCatalogue() (*[]model.CatalogueProduct
 	}
 	return &products, nil
 }
+
+// GetProductBySlug retrieves a product from the database by its slug
+func (r *RepositoryService) GetProductBySlug(slug string) (*model.Product, *[]model.ProductSize, error) {
+	// Retrieve the product from the database
+	var product model.Product
+	dbResponse := r.repo.DB.Where("deleted_at IS NULL").Where("slug = ?", slug).First(&product)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve product from the database: %v", dbResponse.Error)
+		return nil, nil, dbResponse.Error
+	}
+	// retrieve the product sizes from the database
+	var sizes []model.ProductSize
+	dbResponse = r.repo.DB.Where("product_id = ?", product.ID).Where("is_available = true").Omit("ProductID", "IsAvailable", "CreatedAt", "UpdatedAt", "DeletedAt").Find(&sizes)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve product sizes from the database: %v", dbResponse.Error)
+		return nil, nil, dbResponse.Error
+	}
+	return &product, &sizes, nil
+}

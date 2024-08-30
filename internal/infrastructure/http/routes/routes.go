@@ -22,15 +22,16 @@ func SetupRoutes(app *fiber.App, userHandler *handlers.UserHandler, productHandl
 	// === HANDLERS ===
 	userRoutes.Get("/", userHandler.GetUserById)
 
-	/* ========== ADMIN Product routes  ========== */
-	// === GROUP ===
-	productAdminRoutes := app.Group("/api/v1/products")
-	// === MIDDLEWARE ===
-	productAdminRoutes.Use(productHandler.MiddlewareService.VerifyJWT()).Use(productHandler.MiddlewareService.VerifyAdmin())
-	// === HANDLERS ===
-	productAdminRoutes.Post("/", productHandler.InsertProduct)
-
 	/* ========== CUSTOMER Product routes  ========== */
-	// === CUSTOMER ===
+	// === GROUP ===
+	productRoutes := app.Group("/api/v1/products")
+	// === HANDLERS ===
+	productRoutes.Get("/", productHandler.GetAllProductsCatalogue)
+	productRoutes.Get("/:slug", productHandler.GetProductBySlug)
 
+	/* ========== ADMIN Product routes  ========== */
+	// === MIDDLEWARE ===
+	productRoutes.Use(productHandler.MiddlewareService.VerifyJWT()).Use(productHandler.MiddlewareService.VerifyAdmin())
+	// === HANDLERS ===
+	productRoutes.Post("/", productHandler.InsertProduct)
 }
