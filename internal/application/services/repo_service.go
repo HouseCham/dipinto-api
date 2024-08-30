@@ -123,3 +123,30 @@ func (r *RepositoryService) InsertProduct(newProduct *model.Product, sizes *[]mo
 
 	return newProduct.ID, nil
 }
+// GetAllProducts retrieves all products from the database
+func (r *RepositoryService) GetAllProductsCatalogue() (*[]model.CatalogueProduct, error) {
+	var products []model.CatalogueProduct
+	query := `
+		SELECT p.id, p.slug, p.name, p.images, s.price, s.discount
+		FROM
+			products p
+			INNER JOIN product_sizes s ON p.id = s.product_id
+			INNER JOIN (
+				SELECT product_id, MIN(price) AS min_price
+				FROM product_sizes
+				WHERE
+					is_available = true
+				GROUP BY
+					product_id
+			) min_sizes ON s.product_id = min_sizes.product_id
+			AND s.price = min_sizes.min_price
+		WHERE
+			s.is_available = true;
+	`
+	dbResponse := r.repo.DB.Raw(query).Scan(&products)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve products from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &products, nil
+}

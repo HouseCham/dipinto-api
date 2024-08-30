@@ -7,20 +7,30 @@ import (
 
 // SetupRoutes sets up the routes for the application
 func SetupRoutes(app *fiber.App, userHandler *handlers.UserHandler, productHandler *handlers.ProductHandler) {
-	// user routes
+	/* ========== GLOBAL  ========== */
+	// === MIDDLEWARE ===
 	app.Use(userHandler.MiddlewareService.VerifyOrigin())
+	// === HANDLERS ===
 	app.Post("/api/v1/users", userHandler.InsertUser)
+	app.Get("/api/v1/products", productHandler.GetAllProductsCatalogue)
+	app.Post("/api/v1/users/login", userHandler.LoginUser)
 
+	/* ========== User routes  ========== */
 	userRoutes := app.Group("/api/v1/users")
-	userRoutes.Post("/login", userHandler.LoginUser)
+	// === MIDDLEWARE ===
 	userRoutes.Use(userHandler.MiddlewareService.VerifyJWT())
-	// Get by ID
+	// === HANDLERS ===
 	userRoutes.Get("/", userHandler.GetUserById)
 
-	/* ========== Product routes  ========== */
-	// === ADMIN ===
+	/* ========== ADMIN Product routes  ========== */
+	// === GROUP ===
 	productAdminRoutes := app.Group("/api/v1/products")
+	// === MIDDLEWARE ===
 	productAdminRoutes.Use(productHandler.MiddlewareService.VerifyJWT()).Use(productHandler.MiddlewareService.VerifyAdmin())
+	// === HANDLERS ===
 	productAdminRoutes.Post("/", productHandler.InsertProduct)
+
+	/* ========== CUSTOMER Product routes  ========== */
 	// === CUSTOMER ===
+
 }

@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/HouseCham/dipinto-api/internal/domain/model"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -46,22 +45,22 @@ func NewDBConn(dsn string) (*Database, error) {
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	// Auto-migrate schema (you might want to do this elsewhere)
-	if err := migrateModels(db); err != nil {
-		return nil, fmt.Errorf("failed to migrate schema: %v", err)
-	}
+	// if err := migrateModels(db); err != nil {
+	// 	return nil, fmt.Errorf("failed to migrate schema: %v", err)
+	// }
 
 	return &Database{DB: db}, nil
 }
 // MigrateModels migrates the models to the database
-func migrateModels(d *gorm.DB) error {
-	if err := d.AutoMigrate(&model.User{}); err != nil {
-		return err
-	}
-	if err := d.AutoMigrate(&model.Product{}); err != nil {
-		return err
-	}
-	return nil
-}
+// func migrateModels(d *gorm.DB) error {
+// 	if err := d.AutoMigrate(&model.User{}); err != nil {
+// 		return err
+// 	}
+// 	if err := d.AutoMigrate(&model.Product{}); err != nil {
+// 		return err
+// 	}
+// 	return nil
+// }
 
 // Close closes the database connection
 func (d *Database) Close() error {

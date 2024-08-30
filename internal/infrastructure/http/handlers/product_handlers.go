@@ -53,6 +53,23 @@ func (h *ProductHandler) InsertProduct(c fiber.Ctx) error {
 	})
 }
 
+// GetAllProducts is a handler function that retrieves all products from the database
+func (h *ProductHandler) GetAllProductsCatalogue(c fiber.Ctx) error {
+	products, err := h.RepositoryService.GetAllProductsCatalogue()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve products from the database",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		Message:    "Products retrieved successfully",
+		StatusCode: fiber.StatusOK,
+		Data:       products,
+	})
+}
+
 // validateProductStruct isolates the validation logic for the product struct
 func validateProductStruct(product *model.Product, sizes *[]model.ProductSize, imagesDto []dto.ImageDTO, h *ProductHandler) *model.HTTPResponse {
 	if errors := h.ModelService.ValidateRequestBody(product); errors != nil {
