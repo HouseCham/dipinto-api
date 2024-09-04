@@ -69,6 +69,22 @@ func (h *ProductHandler) GetAllProductsCatalogue(c fiber.Ctx) error {
 		Data:       products,
 	})
 }
+// GetAllProductsAdmin is a handler function that retrieves all products from the database
+func (h *ProductHandler) GetAllProductsAdmin(c fiber.Ctx) error {
+	products, err := h.RepositoryService.GetAllProductsAdmin()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve products from the database",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		Message:    "Products retrieved successfully",
+		StatusCode: fiber.StatusOK,
+		Data:       products,
+	})
+}
 
 // GetProductBySlug is a handler function that retrieves a product by its slug
 func (h *ProductHandler) GetProductBySlug(c fiber.Ctx) error {

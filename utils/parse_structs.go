@@ -78,3 +78,32 @@ func ReturnBadRequestResponse(errors *[]validator.ValidatorError) *model.HTTPRes
 		Data:       errors,
 	}
 }
+// ParseProductToAdminProduct parses a Product model to an AdminProduct model
+func ParseProductToAdminProduct(product *model.Product, sizes *[]model.ProductSize) *model.AdminProduct {
+	// Create a slice of ProductSize
+	var sizeDTOs []model.ProductSize
+	for _, size := range *sizes {
+		sizeDTOs = append(sizeDTOs, model.ProductSize{
+			ID:          size.ID,
+			ProductID:   product.ID,
+			IsAvailable: size.IsAvailable,
+			SizeSlug:    size.SizeSlug,
+			Size:        size.Size,
+			Price:       size.Price,
+			Discount:    size.Discount,
+		})
+	}
+	// Unmarshal images from JSON
+	var images []dto.ImageDTO
+	json.Unmarshal(product.Images, &images)
+	
+	// Return the AdminProduct
+	return &model.AdminProduct{
+		ID:       product.ID,
+		ImageUrl: images[0].URL,
+		Name:     product.Name,
+		Category: "Category",
+		Slug:     product.Slug,
+		Sizes:    sizeDTOs,
+	}
+}

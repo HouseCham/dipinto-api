@@ -39,6 +39,15 @@ type CatalogueProduct struct {
 	Discount string `json:"discount"`
 }
 
+type AdminProduct struct {
+	ID       uint64        `json:"id"`
+	ImageUrl string        `json:"image_url"`
+	Name     string        `json:"name"`
+	Category string        `json:"category"`
+	Slug     string        `json:"slug"`
+	Sizes    []ProductSize `json:"sizes"`
+}
+
 func (ProductSize) TableName() string {
 	return "product_sizes"
 }

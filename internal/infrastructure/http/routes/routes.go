@@ -14,6 +14,7 @@ func SetupRoutes(app *fiber.App, userHandler *handlers.UserHandler, productHandl
 	app.Post("/api/v1/users", userHandler.InsertUser)
 	app.Get("/api/v1/products", productHandler.GetAllProductsCatalogue)
 	app.Post("/api/v1/users/login", userHandler.LoginUser)
+	app.Post("/api/v1/users/sign-up", userHandler.InsertUser)
 
 	/* ========== User routes  ========== */
 	userRoutes := app.Group("/api/v1/users")
@@ -33,5 +34,6 @@ func SetupRoutes(app *fiber.App, userHandler *handlers.UserHandler, productHandl
 	// === MIDDLEWARE ===
 	productRoutes.Use(productHandler.MiddlewareService.VerifyJWT()).Use(productHandler.MiddlewareService.VerifyAdmin())
 	// === HANDLERS ===
+	productRoutes.Get("/get-products/admin", productHandler.GetAllProductsAdmin)
 	productRoutes.Post("/", productHandler.InsertProduct)
 }

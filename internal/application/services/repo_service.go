@@ -5,6 +5,7 @@ import (
 
 	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/db"
 	"github.com/HouseCham/dipinto-api/internal/domain/model"
+	"github.com/HouseCham/dipinto-api/utils"
 	"github.com/gofiber/fiber/v3/log"
 )
 
@@ -150,6 +151,42 @@ func (r *RepositoryService) GetAllProductsCatalogue() (*[]model.CatalogueProduct
 	}
 	return &products, nil
 }
+// GetAllProductsAdmin retrieves all products from the database for admin purposes
+func (r *RepositoryService) GetAllProductsAdmin() (*[]model.AdminProduct, error) {
+	// get products from the database
+	var products []model.Product
+	dbResponse := r.repo.DB.Where("deleted_at IS NULL").Omit("CreatedAt", "UpdatedAt", "DeletedAt").Find(&products)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve products from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	// get product sizes from the database
+	var sizes []model.ProductSize
+	for i := range products {
+		var productSizes []model.ProductSize
+		dbResponse = r.repo.DB.Where("product_id = ?", products[i].ID).Where("deleted_at IS NULL").Omit("CreatedAt", "UpdatedAt", "DeletedAt").Find(&productSizes)
+		if dbResponse.Error != nil {
+			log.Warnf("Failed to retrieve product sizes from the database: %v", dbResponse.Error)
+			return nil, dbResponse.Error
+		}
+		sizes = append(sizes, productSizes...)
+	}
+
+	// create a slice of AdminProduct
+	var adminProducts []model.AdminProduct
+	for _, product := range products {
+		// get the product sizes for the current product filtering by product ID on sizes slice
+		var productSizes []model.ProductSize
+		for _, size := range sizes {
+			if size.ProductID == product.ID {
+				productSizes = append(productSizes, size)
+			}
+		}
+		adminProducts = append(adminProducts, *utils.ParseProductToAdminProduct(&product, &productSizes))
+	}
+
+	return &adminProducts, nil
+}
 
 // GetProductBySlug retrieves a product from the database by its slug
 func (r *RepositoryService) GetProductBySlug(slug string) (*model.Product, *[]model.ProductSize, error) {
@@ -162,7 +199,7 @@ func (r *RepositoryService) GetProductBySlug(slug string) (*model.Product, *[]mo
 	}
 	// retrieve the product sizes from the database
 	var sizes []model.ProductSize
-	dbResponse = r.repo.DB.Where("product_id = ?", product.ID).Where("is_available = true").Omit("ProductID", "IsAvailable", "CreatedAt", "UpdatedAt", "DeletedAt").Find(&sizes)
+	dbResponse = r.repo.DB.Where("product_id = ?", product.ID).Omit("ProductID", "CreatedAt", "UpdatedAt", "DeletedAt").Find(&sizes)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve product sizes from the database: %v", dbResponse.Error)
 		return nil, nil, dbResponse.Error
