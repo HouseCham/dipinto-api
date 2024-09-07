@@ -2,13 +2,13 @@ package dto
 
 // ProductDTO is a data transfer object for the product model
 type ProductDTO struct {
-	ID          uint64        `json:"id"`
-	CategoryID  uint64        `json:"category_id"`
-	Slug        string        `json:"slug"`
-	Name        string        `json:"name"`
-	Description string        `json:"description"`
-	Sizes       []ProductSizeDTO     `json:"sizes"`
-	Images      []ImageDTO `json:"images"`
+	ID          uint64           `json:"id"`
+	CategoryID  uint64           `json:"category_id"`
+	Slug        string           `json:"slug"`
+	Name        string           `json:"name"`
+	Description string           `json:"description"`
+	Sizes       []ProductSizeDTO `json:"sizes"`
+	Images      []ImageDTO       `json:"images"`
 }
 
 // ProductSizeDTO is a data transfer object for the product size model

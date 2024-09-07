@@ -94,13 +94,18 @@ func ParseProductToAdminProduct(product *model.Product, sizes *[]model.ProductSi
 		})
 	}
 	// Unmarshal images from JSON
-	var images []dto.ImageDTO
-	json.Unmarshal(product.Images, &images)
+	var urlImg string = ""
+	// for some reason, the images being json marshaled, if empty, len is 4
+	if len(product.Images) > 4 {
+		var images []dto.ImageDTO
+		json.Unmarshal(product.Images, &images)
+		urlImg = images[0].URL
+	}
 	
 	// Return the AdminProduct
 	return &model.AdminProduct{
 		ID:       product.ID,
-		ImageUrl: images[0].URL,
+		ImageUrl: urlImg,
 		Name:     product.Name,
 		Category: "Category",
 		Slug:     product.Slug,

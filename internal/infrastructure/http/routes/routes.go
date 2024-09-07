@@ -35,5 +35,5 @@ func SetupRoutes(app *fiber.App, userHandler *handlers.UserHandler, productHandl
 	productRoutes.Use(productHandler.MiddlewareService.VerifyJWT()).Use(productHandler.MiddlewareService.VerifyAdmin())
 	// === HANDLERS ===
 	productRoutes.Get("/get-products/admin", productHandler.GetAllProductsAdmin)
-	productRoutes.Post("/", productHandler.InsertProduct)
+	productRoutes.Post("/insert", productHandler.InsertProduct)
 }
