@@ -44,11 +44,11 @@ func main() {
 	}))
 	log.Info("Fiber app is set up")
 
-	userHandler, productHandler := injectDependencies(cfg, database, v.SetUpValidator())
+	userHandler, productHandler, categoryHandler := injectDependencies(cfg, database, v.SetUpValidator())
 	log.Info("Handlers are set up")
 	
 	// Set up the routes and handlers for the app
-	routes.SetupRoutes(app, userHandler, productHandler)
+	routes.SetupRoutes(app, userHandler, productHandler, categoryHandler)
 	log.Info("Routes are set up")
 
 	log.Infof("Server is running on port %d", cfg.Server.Port)
@@ -56,7 +56,7 @@ func main() {
 }
 
 // injectDependencies injects the dependencies into the handlers
-func injectDependencies(cfg *config.Config, database *db.Database, v *validator.Validate) (*handlers.UserHandler, *handlers.ProductHandler) {
+func injectDependencies(cfg *config.Config, database *db.Database, v *validator.Validate) (*handlers.UserHandler, *handlers.ProductHandler, *handlers.CategoryHandler) {
 	// Set up the services for dependency injection
 	authService := services.NewAuthService(auth.SetUpAuthService(cfg))
 	middlewareService := services.NewMiddlewareService(middleware.SetupMiddlewareService(cfg))
@@ -69,6 +69,10 @@ func injectDependencies(cfg *config.Config, database *db.Database, v *validator.
 		RepositoryService: repositoryService,
 		ModelService: modelService,
 	}, &handlers.ProductHandler{
+		MiddlewareService: middlewareService,
+		RepositoryService: repositoryService,
+		ModelService: modelService,
+	}, &handlers.CategoryHandler{
 		MiddlewareService: middlewareService,
 		RepositoryService: repositoryService,
 		ModelService: modelService,

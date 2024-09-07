@@ -6,7 +6,7 @@ import (
 )
 
 // SetupRoutes sets up the routes for the application
-func SetupRoutes(app *fiber.App, userHandler *handlers.UserHandler, productHandler *handlers.ProductHandler) {
+func SetupRoutes(app *fiber.App, userHandler *handlers.UserHandler, productHandler *handlers.ProductHandler, categoryHandler *handlers.CategoryHandler) {
 	/* ========== GLOBAL  ========== */
 	// === MIDDLEWARE ===
 	app.Use(userHandler.MiddlewareService.VerifyOrigin())
@@ -36,4 +36,13 @@ func SetupRoutes(app *fiber.App, userHandler *handlers.UserHandler, productHandl
 	// === HANDLERS ===
 	productRoutes.Get("/get-products/admin", productHandler.GetAllProductsAdmin)
 	productRoutes.Post("/insert", productHandler.InsertProduct)
+
+	/* ========== Category routes ========== */
+	categoryRoutes := app.Group("/api/v1/categories")
+	// === HANDLERS ===
+	categoryRoutes.Get("/", categoryHandler.GetAllCategories)
+	// === ADMIN MIDDLEWARE ===
+	categoryRoutes.Use(productHandler.MiddlewareService.VerifyJWT()).Use(productHandler.MiddlewareService.VerifyAdmin())
+	categoryRoutes.Post("/insert", categoryHandler.InsertCategory)
+	categoryRoutes.Put("/update", categoryHandler.UpdateCategory)
 }

@@ -187,7 +187,6 @@ func (r *RepositoryService) GetAllProductsAdmin() (*[]model.AdminProduct, error)
 
 	return &adminProducts, nil
 }
-
 // GetProductBySlug retrieves a product from the database by its slug
 func (r *RepositoryService) GetProductBySlug(slug string) (*model.Product, *[]model.ProductSize, error) {
 	// Retrieve the product from the database
@@ -205,4 +204,35 @@ func (r *RepositoryService) GetProductBySlug(slug string) (*model.Product, *[]mo
 		return nil, nil, dbResponse.Error
 	}
 	return &product, &sizes, nil
+}
+
+//#region CATEGORY
+
+// GetAllCategories retrieves all categories from the database
+func (r *RepositoryService) GetAllCategories() (*[]model.Category, error) {
+	var categories []model.Category
+	dbResponse := r.repo.DB.Omit("CreatedAt", "UpdatedAt").Find(&categories)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve categories from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &categories, nil
+}
+// UpdateCategory updates a category in the database by its ID
+func (r *RepositoryService) UpdateCategory(updatedCategory *model.Category) error {
+	dbResponse := r.repo.DB.Save(updatedCategory)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to update category in the database: %v", dbResponse.Error)
+		return dbResponse.Error
+	}
+	return nil
+}
+// InsertCategory inserts a new category into the database
+func (r *RepositoryService) InsertCategory(newCategory *model.Category) (uint64, error) {
+	dbResponse := r.repo.DB.Omit("ID", "CreatedAt", "UpdatedAt").Create(&newCategory)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to insert category into the database: %v", dbResponse.Error)
+		return 0, dbResponse.Error
+	}
+	return newCategory.ID, nil
 }
