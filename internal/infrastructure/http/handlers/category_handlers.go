@@ -49,6 +49,20 @@ func (h *CategoryHandler) InsertCategory(c fiber.Ctx) error {
 		})
 	}
 
+	// Check if the category already exists
+	categoryExists, err := h.RepositoryService.CheckCategoryExists(&request)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to check if category exists in the database",
+		})
+	} else if categoryExists {
+		return c.Status(fiber.StatusConflict).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusConflict,
+			Message:    "Category already exists",
+		})
+	}
+
 	// Insert the category into the database
 	categoryID, err := h.RepositoryService.InsertCategory(&request)
 	if err != nil {

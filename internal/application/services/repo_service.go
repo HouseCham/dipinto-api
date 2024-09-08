@@ -155,7 +155,14 @@ func (r *RepositoryService) GetAllProductsCatalogue() (*[]model.CatalogueProduct
 func (r *RepositoryService) GetAllProductsAdmin() (*[]model.AdminProduct, error) {
 	// get products from the database
 	var products []model.Product
-	dbResponse := r.repo.DB.Where("deleted_at IS NULL").Omit("CreatedAt", "UpdatedAt", "DeletedAt").Find(&products)
+	query := `
+		SELECT p.id, p.slug, p.name, c.name as category, p.description, p.images
+		FROM products p
+			INNER JOIN categories c ON p.category_id = c.id
+		WHERE
+			p.deleted_at IS NULL;
+	`
+	dbResponse := r.repo.DB.Raw(query).Scan(&products)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve products from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error
@@ -235,4 +242,15 @@ func (r *RepositoryService) InsertCategory(newCategory *model.Category) (uint64,
 		return 0, dbResponse.Error
 	}
 	return newCategory.ID, nil
+}
+
+// CheckCategoryExists checks if a category already exists in the database
+func (r *RepositoryService) CheckCategoryExists(category *model.Category) (bool, error) {
+	var count int64
+	dbResponse := r.repo.DB.Model(&model.Category{}).Where("name = ?", category.Name).Count(&count)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to check if category exists in the database: %v", dbResponse.Error)
+		return false, dbResponse.Error
+	}
+	return count > 0, nil
 }

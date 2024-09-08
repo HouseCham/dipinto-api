@@ -107,7 +107,7 @@ func ParseProductToAdminProduct(product *model.Product, sizes *[]model.ProductSi
 		ID:       product.ID,
 		ImageUrl: urlImg,
 		Name:     product.Name,
-		Category: "Category",
+		Category: product.Category,
 		Slug:     product.Slug,
 		Sizes:    sizeDTOs,
 	}
