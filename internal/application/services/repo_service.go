@@ -44,6 +44,17 @@ func (r *RepositoryService) GetAllUsers() ([]model.User, error) {
 	return users, nil
 }
 
+// GetAllCustomers retrieves all customers from the database
+func (r *RepositoryService) GetAllCustomers() ([]model.User, error) {
+	var customers []model.User
+	dbResponse := r.repo.DB.Where("deleted_at IS NULL").Where("role='customer'").Omit("UpdatedAt","DeletedAt").Find(&customers)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve customers from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return customers, nil
+}
+
 // GetUser retrieves a user from the database
 func (r *RepositoryService) GetUserById(userID uint64) (*model.User, error) {
 	var user model.User
@@ -97,7 +108,7 @@ func (r *RepositoryService) InsertProduct(newProduct *model.Product, sizes *[]mo
 	}
 
 	// Insert the product
-	dbResponse := tx.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&newProduct)
+	dbResponse := tx.Omit("ID", "Category", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&newProduct)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to insert product into the database: %v", dbResponse.Error)
 		tx.Rollback()
@@ -253,4 +264,21 @@ func (r *RepositoryService) CheckCategoryExists(category *model.Category) (bool,
 		return false, dbResponse.Error
 	}
 	return count > 0, nil
+}
+
+//#region ORDER
+// GetOrderList retrieves a list of orders from the database
+func (r *RepositoryService) GetAdminOrderList() (*[]model.OrderListItem, error) {
+	var orders []model.OrderListItem
+	query := `
+		SELECT o.id, o.order_date, u.name, o.payment_method, o.total_amount, o.status, o.delivery_date, o.tracking_id, o.shipping_company
+		FROM orders o
+		INNER JOIN users u ON o.user_id = u.id;
+	`
+	dbResponse := r.repo.DB.Raw(query).Scan(&orders)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve orders from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &orders, nil
 }

@@ -146,3 +146,20 @@ func (h *UserHandler) LoginUser(c fiber.Ctx) error {
 		Data:       token,
 	})
 }
+
+// GetAllCustomers is a handler function that retrieves all customers from the database
+func (h *UserHandler) GetAllCustomers(c fiber.Ctx) error {
+	// Retrieve all customers from the database
+	customers, err := h.RepositoryService.GetAllCustomers()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve customers from the database",
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusOK,
+		Message:    "Customers retrieved successfully",
+		Data:       customers,
+	})
+}
