@@ -55,4 +55,5 @@ func SetupRoutes(app *fiber.App, userHandler *handlers.UserHandler, productHandl
 	orderRoutes.Use(orderHandler.MiddlewareService.VerifyAdmin())
 	// === HANDLERS ===
 	orderRoutes.Get("/get-admin-list", orderHandler.GetAdminOrderList)
+	orderRoutes.Get("/details/:id", orderHandler.GetAdminOrderDetailsById)
 }

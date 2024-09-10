@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/json"
 
+	"github.com/HouseCham/dipinto-api/internal/application/dto"
 	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/db"
 	"github.com/HouseCham/dipinto-api/internal/domain/model"
 	"github.com/HouseCham/dipinto-api/utils"
@@ -25,7 +26,7 @@ func NewRepositoryService(db *db.Database) *RepositoryService {
 
 // InsertUser inserts a new user into the database
 func (r *RepositoryService) InsertUser(newUser *model.User) (uint64, error) {
-	dbResponse := r.repo.DB.Omit("ID","CreatedAt","UpdatedAt","DeletedAt").Create(&newUser)
+	dbResponse := r.repo.DB.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&newUser)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to insert user into the database: %v", dbResponse.Error)
 		return 0, dbResponse.Error
@@ -36,7 +37,7 @@ func (r *RepositoryService) InsertUser(newUser *model.User) (uint64, error) {
 // GetAllUsers retrieves all users from the database
 func (r *RepositoryService) GetAllUsers() ([]model.User, error) {
 	var users []model.User
-	dbResponse := r.repo.DB.Where("deleted_at IS NULL").Omit("CreatedAt","UpdatedAt","DeletedAt").Find(&users)
+	dbResponse := r.repo.DB.Where("deleted_at IS NULL").Omit("CreatedAt", "UpdatedAt", "DeletedAt").Find(&users)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve users from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error
@@ -47,7 +48,7 @@ func (r *RepositoryService) GetAllUsers() ([]model.User, error) {
 // GetAllCustomers retrieves all customers from the database
 func (r *RepositoryService) GetAllCustomers() ([]model.User, error) {
 	var customers []model.User
-	dbResponse := r.repo.DB.Where("deleted_at IS NULL").Where("role='customer'").Omit("UpdatedAt","DeletedAt").Find(&customers)
+	dbResponse := r.repo.DB.Where("deleted_at IS NULL").Where("role='customer'").Omit("UpdatedAt", "DeletedAt").Find(&customers)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve customers from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error
@@ -69,7 +70,7 @@ func (r *RepositoryService) GetUserById(userID uint64) (*model.User, error) {
 // GetUserByEmail retrieves a user from the database by email
 func (r *RepositoryService) GetUserByEmail(email string) (*model.User, error) {
 	var user model.User
-	dbResponse := r.repo.DB.Where("deleted_at IS NULL").Where("email = ?", email).Omit("CreatedAt","UpdatedAt","DeletedAt").First(&user)
+	dbResponse := r.repo.DB.Where("deleted_at IS NULL").Where("email = ?", email).Omit("CreatedAt", "UpdatedAt", "DeletedAt").First(&user)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve user from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error
@@ -92,14 +93,14 @@ func (r *RepositoryService) UpdateUser(updatedUser *model.User) error {
 // InsertProduct inserts a new product into the database
 func (r *RepositoryService) InsertProduct(newProduct *model.Product, sizes *[]model.ProductSize) (uint64, error) {
 	// Marshal images to JSON
-    imagesJSON, err := json.Marshal(newProduct.Images)
-    if err != nil {
-        return 0, err
-    }
+	imagesJSON, err := json.Marshal(newProduct.Images)
+	if err != nil {
+		return 0, err
+	}
 
 	// Set the images field to the marshaled JSON
-    newProduct.Images = imagesJSON
-	
+	newProduct.Images = imagesJSON
+
 	// start a new transaction
 	tx := r.repo.DB.Begin()
 	if tx.Error != nil {
@@ -135,6 +136,7 @@ func (r *RepositoryService) InsertProduct(newProduct *model.Product, sizes *[]mo
 
 	return newProduct.ID, nil
 }
+
 // GetAllProducts retrieves all products from the database
 func (r *RepositoryService) GetAllProductsCatalogue() (*[]model.CatalogueProduct, error) {
 	var products []model.CatalogueProduct
@@ -162,6 +164,7 @@ func (r *RepositoryService) GetAllProductsCatalogue() (*[]model.CatalogueProduct
 	}
 	return &products, nil
 }
+
 // GetAllProductsAdmin retrieves all products from the database for admin purposes
 func (r *RepositoryService) GetAllProductsAdmin() (*[]model.AdminProduct, error) {
 	// get products from the database
@@ -205,6 +208,7 @@ func (r *RepositoryService) GetAllProductsAdmin() (*[]model.AdminProduct, error)
 
 	return &adminProducts, nil
 }
+
 // GetProductBySlug retrieves a product from the database by its slug
 func (r *RepositoryService) GetProductBySlug(slug string) (*model.Product, *[]model.ProductSize, error) {
 	// Retrieve the product from the database
@@ -236,6 +240,7 @@ func (r *RepositoryService) GetAllCategories() (*[]model.Category, error) {
 	}
 	return &categories, nil
 }
+
 // UpdateCategory updates a category in the database by its ID
 func (r *RepositoryService) UpdateCategory(updatedCategory *model.Category) error {
 	dbResponse := r.repo.DB.Save(updatedCategory)
@@ -245,6 +250,7 @@ func (r *RepositoryService) UpdateCategory(updatedCategory *model.Category) erro
 	}
 	return nil
 }
+
 // InsertCategory inserts a new category into the database
 func (r *RepositoryService) InsertCategory(newCategory *model.Category) (uint64, error) {
 	dbResponse := r.repo.DB.Omit("ID", "CreatedAt", "UpdatedAt").Create(&newCategory)
@@ -266,7 +272,7 @@ func (r *RepositoryService) CheckCategoryExists(category *model.Category) (bool,
 	return count > 0, nil
 }
 
-//#region ORDER
+// #region ORDER
 // GetOrderList retrieves a list of orders from the database
 func (r *RepositoryService) GetAdminOrderList() (*[]model.OrderListItem, error) {
 	var orders []model.OrderListItem
@@ -281,4 +287,41 @@ func (r *RepositoryService) GetAdminOrderList() (*[]model.OrderListItem, error) 
 		return nil, dbResponse.Error
 	}
 	return &orders, nil
+}
+
+// GetOrderDetails retrieves the details of an order from the database
+func (r *RepositoryService) GetOrderDetails(orderID uint64) (*dto.OrderDetailsDTO, error) {
+	var order dto.OrderDetailsDTO
+	// Fetch Order Details along with User and Address
+	dbResponse := r.repo.DB.Raw(`
+		SELECT 
+			o.id, o.order_date, o.status, o.total_amount, o.delivery_date, o.payment_method, 
+			o.tracking_id, o.shipping_company, u.name, u.email, 
+			u.phone, a.address_line1 as address_line1, 
+			a.address_line2 as address_line2, a.city as city, 
+			a.state as state, a.postal_code as postal_code
+		FROM orders o
+		INNER JOIN users u ON o.user_id = u.id
+		INNER JOIN addresses a ON o.address_id = a.id
+		WHERE o.id = ?`, orderID).Scan(&order)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve order details from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+
+	var items []dto.OrderItemDTO
+	dbResponse = r.repo.DB.Raw(`
+		SELECT 
+			oi.id, p.images, p.name, s.size, oi.quantity, oi.price
+		FROM order_items oi 
+		INNER JOIN product_sizes s ON oi.product_id = s.id
+		INNER JOIN products p ON p.id = s.product_id
+		WHERE oi.order_id = ?`, orderID).Scan(&items)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve order items from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+
+	order.Items = items
+	return &order, nil
 }

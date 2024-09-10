@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"strconv"
+
 	"github.com/HouseCham/dipinto-api/internal/application/services"
 	"github.com/HouseCham/dipinto-api/internal/domain/model"
 	"github.com/gofiber/fiber/v3"
@@ -26,5 +28,31 @@ func (h *OrderHandler) GetAdminOrderList(c fiber.Ctx) error {
 		StatusCode: fiber.StatusOK,
 		Message:    "Orders retrieved successfully",
 		Data:       orders,
+	})
+}
+
+// GetAdminOrderDetails is a handler function that retrieves a specific order from the database
+func (h *OrderHandler) GetAdminOrderDetailsById(c fiber.Ctx) error {
+	orderID := c.Params("id")
+	// convert the orderID to a uint64
+	uintID, err := strconv.ParseUint(orderID, 10, 64)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Invalid order ID",
+		})
+	}
+	// retrieve the order details from the database
+	order, err := h.RepositoryService.GetOrderDetails(uintID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve order details from the database",
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusOK,
+		Message:    "Order details retrieved successfully",
+		Data:       order,
 	})
 }
