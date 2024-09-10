@@ -23,7 +23,7 @@ type OrderDetailsDTO struct {
 	State        string `json:"state"`
 	PostalCode   string `json:"postal_code"`
 	// Order Items Information
-	Items []OrderItemDTO `gorm:"-",json:"items"`
+	Items []OrderItemDTO `gorm:"-" json:"items"`
 }
 
 type OrderItemDTO struct {
