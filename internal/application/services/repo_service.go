@@ -47,9 +47,27 @@ func (r *RepositoryService) GetAllUsers() ([]model.User, error) {
 }
 
 // GetAllCustomers retrieves all customers from the database
-func (r *RepositoryService) GetAllCustomers() ([]model.User, error) {
+func (r *RepositoryService) GetAllCustomers(offset int, limit int, searchValue string) ([]model.User, error) {
 	var customers []model.User
-	dbResponse := r.repo.DB.Where("deleted_at IS NULL").Where("role='customer'").Omit("UpdatedAt", "DeletedAt").Find(&customers)
+	query := r.repo.DB.Table("users u").
+	Select("u.id, u.name, u.email, u.phone, u.created_at").
+	Where("deleted_at IS NULL").
+	Where("role='customer'")
+
+	// Add search filter if searchValue is provided
+	if searchValue != "" {
+		searchPattern := "%" + searchValue + "%"
+		query = query.Where("u.name ILIKE ?", searchPattern)
+	}
+	// Adding offset and limit for pagination
+	if offset >= 0 {
+		query = query.Offset(offset)
+	}
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+
+	dbResponse := query.Scan(&customers)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve customers from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error
@@ -294,9 +312,26 @@ func (r *RepositoryService) GetProductBySlug(slug string) (*model.Product, *[]mo
 //#region CATEGORY
 
 // GetAllCategories retrieves all categories from the database
-func (r *RepositoryService) GetAllCategories() (*[]model.Category, error) {
+func (r *RepositoryService) GetAllCategories(offset int, limit int, searchValue string) (*[]model.Category, error) {
 	var categories []model.Category
-	dbResponse := r.repo.DB.Omit("CreatedAt", "UpdatedAt").Find(&categories)
+	query := r.repo.DB.Table("categories c").
+	Select("c.id, c.name, c.description")
+
+	// Add search filter if searchValue is provided
+	if searchValue != "" {
+		searchPattern := "%" + searchValue + "%"
+		query = query.Where("c.name ILIKE ?", searchPattern)
+	}
+	// Adding offset and limit for pagination
+	if offset >= 0 {
+		query = query.Offset(offset)
+	}
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+
+	// Perform query search
+	dbResponse := query.Scan(&categories)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve categories from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error
@@ -361,11 +396,6 @@ func (r *RepositoryService) GetTopFiveCategoriesSold() (*[]dto.TopCategoryDTO, e
 // GetOrderList retrieves a list of orders from the database
 func (r *RepositoryService) GetAdminOrderList(offset int, limit int, searchValue string, orderStatus string, paymentType string) (*[]model.OrderListItem, error) {
 	var orders []model.OrderListItem
-	// query := `
-	// 	SELECT o.id, o.order_date, u.name, o.payment_method, o.total_amount, o.status, o.delivery_date, o.tracking_id, o.shipping_company
-	// 	FROM orders o
-	// 	INNER JOIN users u ON o.user_id = u.id;
-	// `
 	query := r.repo.DB.Table("orders o").
 	Select("o.id, o.order_date, u.name, o.payment_method, o.total_amount, o.status, o.delivery_date, o.tracking_id, o.shipping_company").
 	Joins("INNER JOIN users u ON o.user_id = u.id")

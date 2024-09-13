@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"strconv"
+
 	"github.com/HouseCham/dipinto-api/internal/application/services"
 	"github.com/HouseCham/dipinto-api/internal/domain/model"
 	"github.com/gofiber/fiber/v3"
@@ -14,7 +16,22 @@ type CategoryHandler struct {
 
 // GetAllCategories is a handler function that retrieves all categories from the database
 func (h *CategoryHandler) GetAllCategories(c fiber.Ctx) error {
-	categories, err := h.RepositoryService.GetAllCategories()
+	offset := c.Query("offset", "0")
+	limit := c.Query("limit", "10")
+	searchValue := c.Query("searchValue", "")
+
+	// Convert the offset and limit query parameters to integers
+	offsetInt, err := strconv.Atoi(offset)
+	limitInt, err1 := strconv.Atoi(limit)
+	if (err != nil || err1 != nil) {
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Invalid pagination parameters",
+		})
+	}
+
+	// Retrieve all categories from the database
+	categories, err := h.RepositoryService.GetAllCategories(offsetInt, limitInt, searchValue)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
 			StatusCode: fiber.StatusInternalServerError,

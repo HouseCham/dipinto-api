@@ -149,8 +149,22 @@ func (h *UserHandler) LoginUser(c fiber.Ctx) error {
 
 // GetAllCustomers is a handler function that retrieves all customers from the database
 func (h *UserHandler) GetAllCustomers(c fiber.Ctx) error {
+	offset := c.Query("offset", "0")
+	limit := c.Query("limit", "10")
+	searchValue := c.Query("searchValue", "")
+
+	// Convert the offset and limit query parameters to integers
+	offsetInt, err := strconv.Atoi(offset)
+	limitInt, err1 := strconv.Atoi(limit)
+	if (err != nil || err1 != nil) {
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Invalid pagination parameters",
+		})
+	}
+
 	// Retrieve all customers from the database
-	customers, err := h.RepositoryService.GetAllCustomers()
+	customers, err := h.RepositoryService.GetAllCustomers(offsetInt, limitInt, searchValue)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
 			StatusCode: fiber.StatusInternalServerError,
