@@ -8,7 +8,7 @@ import (
 type Product struct {
 	ID          uint64          `gorm:"primaryKey;autoIncrement" json:"id"`
 	CategoryID  uint64          `gorm:"not null" validate:"required,numeric" json:"category_id"`
-	Category    string          `json:"category"`
+	Category    string          `gorm:"-" json:"category"`
 	Slug        string          `gorm:"unique;not null" validate:"required,slug" json:"slug"`
 	Name        string          `gorm:"not null" validate:"required" json:"name"`
 	Description string          `gorm:"type:text" validate:"required" json:"description"`
@@ -40,13 +40,14 @@ type CatalogueProduct struct {
 	Discount string `json:"discount"`
 }
 
+// AdminProduct is a struct that represents a product in the admin panel catalog
 type AdminProduct struct {
-	ID       uint64        `json:"id"`
-	ImageUrl string        `json:"image_url"`
-	Name     string        `json:"name"`
-	Category string        `json:"category"`
-	Slug     string        `json:"slug"`
-	Sizes    []ProductSize `json:"sizes"`
+	ID       uint64          `gorm:"primaryKey" json:"id"`
+	Images   json.RawMessage `gorm:"type:jsonb" json:"images"`
+	Name     string          `json:"name"`
+	Category string          `json:"category"`
+	Slug     string          `json:"slug"`
+	Sizes    []ProductSize   `gorm:"-" json:"sizes"`
 }
 
 func (ProductSize) TableName() string {

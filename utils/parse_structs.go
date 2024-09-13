@@ -57,7 +57,7 @@ func ParseProductModelToDTO(product *model.Product, sizes *[]model.ProductSize) 
 	// Unmarshal images from JSON
 	var images []dto.ImageDTO
 	json.Unmarshal(product.Images, &images)
-	
+
 	// Return the ProductDTO
 	return &dto.ProductDTO{
 		ID:          product.ID,
@@ -78,6 +78,7 @@ func ReturnBadRequestResponse(errors *[]validator.ValidatorError) *model.HTTPRes
 		Data:       errors,
 	}
 }
+
 // ParseProductToAdminProduct parses a Product model to an AdminProduct model
 func ParseProductToAdminProduct(product *model.Product, sizes *[]model.ProductSize) *model.AdminProduct {
 	// Create a slice of ProductSize
@@ -93,22 +94,36 @@ func ParseProductToAdminProduct(product *model.Product, sizes *[]model.ProductSi
 			Discount:    size.Discount,
 		})
 	}
-	// Unmarshal images from JSON
-	var urlImg string = ""
 	// for some reason, the images being json marshaled, if empty, len is 4
 	if len(product.Images) > 4 {
 		var images []dto.ImageDTO
 		json.Unmarshal(product.Images, &images)
-		urlImg = images[0].URL
+		images = images[:0]
 	}
-	
+
 	// Return the AdminProduct
 	return &model.AdminProduct{
 		ID:       product.ID,
-		ImageUrl: urlImg,
+		Images:   product.Images,
 		Name:     product.Name,
 		Category: product.Category,
 		Slug:     product.Slug,
 		Sizes:    sizeDTOs,
 	}
+}
+
+// AssignSizesToProducts assigns sizes to products admin
+func AssignSizesToProducts(products []model.AdminProduct, sizes []model.ProductSize) {
+    // Create a map to group sizes by ProductID
+    sizeMap := make(map[uint64][]model.ProductSize)
+    for _, size := range sizes {
+        sizeMap[size.ProductID] = append(sizeMap[size.ProductID], size)
+    }
+
+    // Assign the sizes to the corresponding products
+    for i := range products {
+        if sizes, found := sizeMap[products[i].ID]; found {
+            products[i].Sizes = sizes
+        }
+    }
 }

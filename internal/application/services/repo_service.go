@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/HouseCham/dipinto-api/internal/application/dto"
 	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/db"
@@ -137,6 +138,55 @@ func (r *RepositoryService) InsertProduct(newProduct *model.Product, sizes *[]mo
 	return newProduct.ID, nil
 }
 
+// UpdateProduct updates a product in the database
+func (r *RepositoryService) UpdateProduct(updatedProduct *model.Product, sizes *[]model.ProductSize) error {
+	// Marshal images to JSON
+	imagesJSON, err := json.Marshal(updatedProduct.Images)
+	if err != nil {
+		return err
+	}
+
+	// Set the images field to the marshaled JSON
+	updatedProduct.Images = imagesJSON
+	updatedProduct.UpdatedAt = time.Now()
+
+	// start a new transaction
+	tx := r.repo.DB.Begin()
+	if tx.Error != nil {
+		log.Warnf("Failed to begin transaction: %v", tx.Error)
+		return tx.Error
+	}
+
+	// Update the product
+	dbResponse := tx.Omit("CreatedAt", "DeletedAt").Save(updatedProduct)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to update product in the database: %v", dbResponse.Error)
+		tx.Rollback()
+		return dbResponse.Error
+	}
+
+	// Update the product sizes
+	for _, size := range *sizes {
+		size.ProductID = updatedProduct.ID
+		size.UpdatedAt = time.Now()
+		dbResponse := tx.Omit("CreatedAt", "DeletedAt").Save(&size)
+		if dbResponse.Error != nil {
+			log.Warnf("Failed to update product size into the database: %v", dbResponse.Error)
+			tx.Rollback()
+			return dbResponse.Error
+		}
+	}
+
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		log.Warnf("Failed to commit transaction: %v", err)
+		tx.Rollback()
+		return err
+	}
+
+	return nil
+}
+
 // GetAllProducts retrieves all products from the database
 func (r *RepositoryService) GetAllProductsCatalogue() (*[]model.CatalogueProduct, error) {
 	var products []model.CatalogueProduct
@@ -166,17 +216,35 @@ func (r *RepositoryService) GetAllProductsCatalogue() (*[]model.CatalogueProduct
 }
 
 // GetAllProductsAdmin retrieves all products from the database for admin purposes
-func (r *RepositoryService) GetAllProductsAdmin() (*[]model.AdminProduct, error) {
+func (r *RepositoryService) GetAllProductsAdmin(categoryId uint64, searchValue string, offset int, limit int) (*[]model.AdminProduct, error) {
 	// get products from the database
-	var products []model.Product
-	query := `
-		SELECT p.id, p.slug, p.name, c.name as category, p.description, p.images
-		FROM products p
-			INNER JOIN categories c ON p.category_id = c.id
-		WHERE
-			p.deleted_at IS NULL;
-	`
-	dbResponse := r.repo.DB.Raw(query).Scan(&products)
+	var products []model.AdminProduct
+	// Define the base query
+	query := r.repo.DB.Table("products p").
+		Select("p.id, p.slug, p.name, c.name as category, p.description, p.images").
+		Joins("INNER JOIN categories c ON p.category_id = c.id").
+		Where("p.deleted_at IS NULL")
+
+	// Add category filter if categoryId is provided
+	if categoryId != 0 {
+		query = query.Where("p.category_id = ?", categoryId)
+	}
+
+	// Add search filter if searchValue is provided
+	if searchValue != "" {
+		searchPattern := "%" + searchValue + "%"
+		query = query.Where("p.name ILIKE ? OR p.description ILIKE ?", searchPattern, searchPattern)
+	}
+
+	// Adding offset and limit for pagination
+	if offset >= 0 {
+		query = query.Offset(offset)
+	}
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+
+	dbResponse := query.Scan(&products)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve products from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error
@@ -192,21 +260,10 @@ func (r *RepositoryService) GetAllProductsAdmin() (*[]model.AdminProduct, error)
 		}
 		sizes = append(sizes, productSizes...)
 	}
-
-	// create a slice of AdminProduct
-	var adminProducts []model.AdminProduct
-	for _, product := range products {
-		// get the product sizes for the current product filtering by product ID on sizes slice
-		var productSizes []model.ProductSize
-		for _, size := range sizes {
-			if size.ProductID == product.ID {
-				productSizes = append(productSizes, size)
-			}
-		}
-		adminProducts = append(adminProducts, *utils.ParseProductToAdminProduct(&product, &productSizes))
-	}
-
-	return &adminProducts, nil
+	
+	// Assign sizes to products
+	utils.AssignSizesToProducts(products, sizes)
+	return &products, nil
 }
 
 // GetProductBySlug retrieves a product from the database by its slug
@@ -272,6 +329,28 @@ func (r *RepositoryService) CheckCategoryExists(category *model.Category) (bool,
 	return count > 0, nil
 }
 
+// GetTopFiveCategoriesSold retrieves the top five categories sold from the database
+func (r *RepositoryService) GetTopFiveCategoriesSold() (*[]dto.TopCategoryDTO, error) {
+	query := `
+	SELECT c.name, SUM(oi.quantity) as total_sales
+	FROM product_sizes s
+	INNER JOIN products p ON p.id = s.product_id
+	INNER JOIN categories c ON p.category_id = c.id
+	INNER JOIN order_items oi ON oi.product_id = s.id
+	INNER JOIN orders o ON o.id = oi.order_id
+	WHERE o.status != 'cancelled'
+	GROUP BY c.id
+	ORDER BY SUM(oi.quantity) DESC
+	LIMIT 5;`
+	var categories []dto.TopCategoryDTO
+	dbResponse := r.repo.DB.Raw(query).Scan(&categories)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve top five categories sold from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &categories, nil
+}
+
 // #region ORDER
 // GetOrderList retrieves a list of orders from the database
 func (r *RepositoryService) GetAdminOrderList() (*[]model.OrderListItem, error) {
@@ -296,7 +375,7 @@ func (r *RepositoryService) GetOrderDetails(orderID uint64) (*dto.OrderDetailsDT
 	dbResponse := r.repo.DB.Raw(`
 		SELECT 
 			o.id, o.order_date, o.status, o.total_amount, o.delivery_date, o.payment_method, 
-			o.tracking_id, o.shipping_company, u.name, u.email, 
+			o.tracking_id, o.shipping_company, o.delivery_cost, u.name, u.email, 
 			u.phone, a.address_line1 as address_line1, 
 			a.address_line2 as address_line2, a.city as city, 
 			a.state as state, a.postal_code as postal_code
@@ -312,7 +391,7 @@ func (r *RepositoryService) GetOrderDetails(orderID uint64) (*dto.OrderDetailsDT
 	var items []dto.OrderItemDTO
 	dbResponse = r.repo.DB.Raw(`
 		SELECT 
-			oi.id, p.images, p.name, s.size, oi.quantity, oi.price
+			oi.id, p.images, p.name, s.size, oi.quantity, oi.price, oi.discount
 		FROM order_items oi 
 		INNER JOIN product_sizes s ON oi.product_id = s.id
 		INNER JOIN products p ON p.id = s.product_id

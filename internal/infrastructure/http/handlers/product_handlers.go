@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"strconv"
+
 	"github.com/HouseCham/dipinto-api/internal/application/dto"
 	"github.com/HouseCham/dipinto-api/internal/application/services"
 	"github.com/HouseCham/dipinto-api/internal/domain/model"
@@ -53,6 +55,43 @@ func (h *ProductHandler) InsertProduct(c fiber.Ctx) error {
 	})
 }
 
+// UpdateProduct is a handler function that updates a product in the database
+func (h *ProductHandler) UpdateProduct(c fiber.Ctx) error {
+	var requestDto dto.ProductDTO
+
+	err := c.Bind().JSON(&requestDto); 
+	if err != nil {
+		log.Warnf("Failed to parse user request body: %v", err)
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Error parsing user request body",
+		})
+	}
+
+	// Parse the request DTO to a model
+	product, sizes := utils.ParseProductDTOToModel(requestDto)
+
+	// Validate the request body
+	invalidResponse := validateProductStruct(product, sizes, requestDto.Images, h)
+	if invalidResponse != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(invalidResponse)
+	}
+
+	// Update the product in the database
+	err = h.RepositoryService.UpdateProduct(product, sizes)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to update product in the database",
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusOK,
+		Message:    "Product updated successfully",
+	})
+}
+
 // GetAllProducts is a handler function that retrieves all products from the database
 func (h *ProductHandler) GetAllProductsCatalogue(c fiber.Ctx) error {
 	products, err := h.RepositoryService.GetAllProductsCatalogue()
@@ -71,7 +110,28 @@ func (h *ProductHandler) GetAllProductsCatalogue(c fiber.Ctx) error {
 }
 // GetAllProductsAdmin is a handler function that retrieves all products from the database
 func (h *ProductHandler) GetAllProductsAdmin(c fiber.Ctx) error {
-	products, err := h.RepositoryService.GetAllProductsAdmin()
+	searchValue := c.Query("searchValue")
+	categoryID := c.Query("categoryID")
+	offset := c.Query("offset")
+	limit := c.Query("limit")
+	if (categoryID == "") {
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Invalid query params",
+		})
+	}
+	// convert the orderID to a uint64
+	uintID, err := strconv.ParseUint(categoryID, 10, 64)
+	offsetInt, err1 := strconv.Atoi(offset)
+	limitInt, err2 := strconv.Atoi(limit)
+	if (err != nil || err1 != nil || err2 != nil) {
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Invalid order ID",
+		})
+	}
+	// retrieve the order details from the database
+	products, err := h.RepositoryService.GetAllProductsAdmin(uintID, searchValue, offsetInt, limitInt)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
 			StatusCode: fiber.StatusInternalServerError,

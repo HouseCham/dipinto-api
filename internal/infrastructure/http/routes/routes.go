@@ -38,6 +38,7 @@ func SetupRoutes(app *fiber.App, userHandler *handlers.UserHandler, productHandl
 	// === HANDLERS ===
 	productRoutes.Get("/get-products/admin", productHandler.GetAllProductsAdmin)
 	productRoutes.Post("/insert", productHandler.InsertProduct)
+	productRoutes.Put("/update", productHandler.UpdateProduct)
 
 	/* ========== Category routes ========== */
 	categoryRoutes := app.Group("/api/v1/categories")

@@ -12,6 +12,7 @@ type OrderDetailsDTO struct {
 	PaymentMethod   string  `json:"payment_method"`
 	TrackingID      string  `json:"tracking_id"`
 	ShippingCompany string  `json:"shipping_company"`
+	DeliveryCost    float64 `json:"delivery_cost"`
 	// User Information
 	Name  string `json:"name"`
 	Email string `json:"email"`
@@ -35,5 +36,6 @@ type OrderItemDTO struct {
 	Images json.RawMessage `json:"images"`
 	Name   string          `json:"name"`
 	// Product Size Information
-	Size string `json:"size"`
+	Size     string  `json:"size"`
+	Discount float64 `json:"discount"`
 }

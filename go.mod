@@ -6,7 +6,6 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-playground/validator/v10 v10.22.0
 	github.com/gofiber/fiber/v3 v3.0.0-beta.3
-	github.com/lib/pq v1.10.9
 	github.com/spf13/viper v1.19.0
 	golang.org/x/crypto v0.24.0
 	gorm.io/driver/postgres v1.5.9
