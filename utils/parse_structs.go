@@ -80,11 +80,11 @@ func ReturnBadRequestResponse(errors *[]validator.ValidatorError) *model.HTTPRes
 }
 
 // ParseProductToAdminProduct parses a Product model to an AdminProduct model
-func ParseProductToAdminProduct(product *model.Product, sizes *[]model.ProductSize) *model.AdminProduct {
+func ParseProductToAdminProduct(product *model.Product, sizes *[]model.ProductSize) *dto.AdminProductDTO {
 	// Create a slice of ProductSize
-	var sizeDTOs []model.ProductSize
+	var sizeDTOs []dto.ProductSizeDTO
 	for _, size := range *sizes {
-		sizeDTOs = append(sizeDTOs, model.ProductSize{
+		sizeDTOs = append(sizeDTOs, dto.ProductSizeDTO{
 			ID:          size.ID,
 			ProductID:   product.ID,
 			IsAvailable: size.IsAvailable,
@@ -102,7 +102,7 @@ func ParseProductToAdminProduct(product *model.Product, sizes *[]model.ProductSi
 	}
 
 	// Return the AdminProduct
-	return &model.AdminProduct{
+	return &dto.AdminProductDTO{
 		ID:       product.ID,
 		Images:   product.Images,
 		Name:     product.Name,
@@ -113,9 +113,9 @@ func ParseProductToAdminProduct(product *model.Product, sizes *[]model.ProductSi
 }
 
 // AssignSizesToProducts assigns sizes to products admin
-func AssignSizesToProducts(products []model.AdminProduct, sizes []model.ProductSize) {
+func AssignSizesToProducts(products []dto.AdminProductDTO, sizes []dto.ProductSizeDTO) {
     // Create a map to group sizes by ProductID
-    sizeMap := make(map[uint64][]model.ProductSize)
+    sizeMap := make(map[uint64][]dto.ProductSizeDTO)
     for _, size := range sizes {
         sizeMap[size.ProductID] = append(sizeMap[size.ProductID], size)
     }

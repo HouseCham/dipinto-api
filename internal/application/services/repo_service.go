@@ -216,9 +216,9 @@ func (r *RepositoryService) GetAllProductsCatalogue() (*[]model.CatalogueProduct
 }
 
 // GetAllProductsAdmin retrieves all products from the database for admin purposes
-func (r *RepositoryService) GetAllProductsAdmin(categoryId uint64, searchValue string, offset int, limit int) (*[]model.AdminProduct, error) {
+func (r *RepositoryService) GetAllProductsAdmin(categoryId uint64, searchValue string, offset int, limit int) (*[]dto.AdminProductDTO, error) {
 	// get products from the database
-	var products []model.AdminProduct
+	var products []dto.AdminProductDTO
 	// Define the base query
 	query := r.repo.DB.Table("products p").
 		Select("p.id, p.slug, p.name, c.name as category, p.description, p.images").
@@ -250,17 +250,23 @@ func (r *RepositoryService) GetAllProductsAdmin(categoryId uint64, searchValue s
 		return nil, dbResponse.Error
 	}
 	// get product sizes from the database
-	var sizes []model.ProductSize
+	var sizes []dto.ProductSizeDTO
 	for i := range products {
-		var productSizes []model.ProductSize
-		dbResponse = r.repo.DB.Where("product_id = ?", products[i].ID).Where("deleted_at IS NULL").Omit("CreatedAt", "UpdatedAt", "DeletedAt").Find(&productSizes)
+		var productSizes []dto.ProductSizeDTO
+		query = r.repo.DB.Table("product_sizes s").
+			Select("s.id, s.product_id, s.is_available, s.size_slug, s.size, s.price, s.discount").
+			Where("s.deleted_at IS NULL").
+			Where("s.product_id = ?", products[i].ID)
+
+		// perform query search
+		dbResponse = query.Scan(&productSizes)
 		if dbResponse.Error != nil {
 			log.Warnf("Failed to retrieve product sizes from the database: %v", dbResponse.Error)
 			return nil, dbResponse.Error
 		}
 		sizes = append(sizes, productSizes...)
 	}
-	
+
 	// Assign sizes to products
 	utils.AssignSizesToProducts(products, sizes)
 	return &products, nil

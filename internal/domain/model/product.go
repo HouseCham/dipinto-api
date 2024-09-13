@@ -40,16 +40,6 @@ type CatalogueProduct struct {
 	Discount string `json:"discount"`
 }
 
-// AdminProduct is a struct that represents a product in the admin panel catalog
-type AdminProduct struct {
-	ID       uint64          `gorm:"primaryKey" json:"id"`
-	Images   json.RawMessage `gorm:"type:jsonb" json:"images"`
-	Name     string          `json:"name"`
-	Category string          `json:"category"`
-	Slug     string          `json:"slug"`
-	Sizes    []ProductSize   `gorm:"-" json:"sizes"`
-}
-
 func (ProductSize) TableName() string {
 	return "product_sizes"
 }
