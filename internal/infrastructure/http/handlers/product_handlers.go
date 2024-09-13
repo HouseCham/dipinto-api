@@ -110,16 +110,10 @@ func (h *ProductHandler) GetAllProductsCatalogue(c fiber.Ctx) error {
 }
 // GetAllProductsAdmin is a handler function that retrieves all products from the database
 func (h *ProductHandler) GetAllProductsAdmin(c fiber.Ctx) error {
-	searchValue := c.Query("searchValue")
-	categoryID := c.Query("categoryID")
-	offset := c.Query("offset")
-	limit := c.Query("limit")
-	if (categoryID == "") {
-		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
-			StatusCode: fiber.StatusBadRequest,
-			Message:    "Invalid query params",
-		})
-	}
+	searchValue := c.Query("searchValue", "")
+	categoryID := c.Query("categoryID", "0")
+	offset := c.Query("offset", "0")
+	limit := c.Query("limit", "10")
 	// convert the orderID to a uint64
 	uintID, err := strconv.ParseUint(categoryID, 10, 64)
 	offsetInt, err1 := strconv.Atoi(offset)

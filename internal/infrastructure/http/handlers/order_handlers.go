@@ -16,7 +16,21 @@ type OrderHandler struct {
 
 // GetAdminOrderList is a handler function that retrieves all orders from the database
 func (h *OrderHandler) GetAdminOrderList(c fiber.Ctx) error {
-	orders, err := h.RepositoryService.GetAdminOrderList()
+	offset := c.Query("offset", "0")
+	limit := c.Query("limit", "10")
+	searchValue := c.Query("searchValue", "")
+	status := c.Query("status", "")
+	payment := c.Query("payment", "")
+
+	offsetInt, err := strconv.Atoi(offset)
+	limitInt, err1 := strconv.Atoi(limit)
+	if (err != nil || err1 != nil) {
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Invalid pagination parameters",
+		})
+	}
+	orders, err := h.RepositoryService.GetAdminOrderList(offsetInt, limitInt, searchValue, status, payment)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
 			StatusCode: fiber.StatusInternalServerError,

@@ -359,14 +359,39 @@ func (r *RepositoryService) GetTopFiveCategoriesSold() (*[]dto.TopCategoryDTO, e
 
 // #region ORDER
 // GetOrderList retrieves a list of orders from the database
-func (r *RepositoryService) GetAdminOrderList() (*[]model.OrderListItem, error) {
+func (r *RepositoryService) GetAdminOrderList(offset int, limit int, searchValue string, orderStatus string, paymentType string) (*[]model.OrderListItem, error) {
 	var orders []model.OrderListItem
-	query := `
-		SELECT o.id, o.order_date, u.name, o.payment_method, o.total_amount, o.status, o.delivery_date, o.tracking_id, o.shipping_company
-		FROM orders o
-		INNER JOIN users u ON o.user_id = u.id;
-	`
-	dbResponse := r.repo.DB.Raw(query).Scan(&orders)
+	// query := `
+	// 	SELECT o.id, o.order_date, u.name, o.payment_method, o.total_amount, o.status, o.delivery_date, o.tracking_id, o.shipping_company
+	// 	FROM orders o
+	// 	INNER JOIN users u ON o.user_id = u.id;
+	// `
+	query := r.repo.DB.Table("orders o").
+	Select("o.id, o.order_date, u.name, o.payment_method, o.total_amount, o.status, o.delivery_date, o.tracking_id, o.shipping_company").
+	Joins("INNER JOIN users u ON o.user_id = u.id")
+
+	// Add search filter if searchValue is provided
+	if searchValue != "" {
+		searchPattern := "%" + searchValue + "%"
+		query = query.Where("u.name ILIKE ?", searchPattern)
+	}
+	// Add status filter if orderStatus is provided
+	if orderStatus != "" {
+		query = query.Where("o.status = ?", orderStatus)
+	}
+	// Add payment filter if paymentType is provided
+	if paymentType != "" {
+		query = query.Where("o.payment_method = ?", paymentType)
+	}
+	// Adding offset and limit for pagination
+	if offset >= 0 {
+		query = query.Offset(offset)
+	}
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+
+	dbResponse := query.Scan(&orders)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve orders from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error
