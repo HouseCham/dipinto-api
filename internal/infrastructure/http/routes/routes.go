@@ -6,7 +6,7 @@ import (
 )
 
 // SetupRoutes sets up the routes for the application
-func SetupRoutes(app *fiber.App, userHandler *handlers.UserHandler, productHandler *handlers.ProductHandler, categoryHandler *handlers.CategoryHandler, orderHandler *handlers.OrderHandler) {
+func SetupRoutes(app *fiber.App, userHandler *handlers.UserHandler, productHandler *handlers.ProductHandler, categoryHandler *handlers.CategoryHandler, orderHandler *handlers.OrderHandler, adminHandler *handlers.AdminHandler) {
 	/* ========== GLOBAL  ========== */
 	// === MIDDLEWARE ===
 	app.Use(userHandler.MiddlewareService.VerifyOrigin())
@@ -52,9 +52,14 @@ func SetupRoutes(app *fiber.App, userHandler *handlers.UserHandler, productHandl
 	/* ========== Order routes ========== */
 	orderRoutes := app.Group("/api/v1/orders")
 	// === MIDDLEWARE ===
-	orderRoutes.Use(orderHandler.MiddlewareService.VerifyJWT())
-	orderRoutes.Use(orderHandler.MiddlewareService.VerifyAdmin())
+	orderRoutes.Use(orderHandler.MiddlewareService.VerifyJWT()).Use(orderHandler.MiddlewareService.VerifyAdmin())
 	// === HANDLERS ===
 	orderRoutes.Get("/get-admin-list", orderHandler.GetAdminOrderList)
 	orderRoutes.Get("/details/:id", orderHandler.GetAdminOrderDetailsById)
+
+	/* ========== Admin routes ========== */
+	adminRoutes := app.Group("/api/v1/admin")
+	adminRoutes.Use(adminHandler.MiddlewareService.VerifyJWT()).Use(adminHandler.MiddlewareService.VerifyAdmin())
+	// === DASHBOARD ENDPOINTS ===
+	adminRoutes.Get("/dashboard", adminHandler.GetAdminDashboard)
 }

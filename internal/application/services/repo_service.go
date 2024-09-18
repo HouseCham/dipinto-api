@@ -465,3 +465,64 @@ func (r *RepositoryService) GetOrderDetails(orderID uint64) (*dto.OrderDetailsDT
 	order.Items = items
 	return &order, nil
 }
+
+// PatchOrderStatus updates the status of an order in the database
+func (r *RepositoryService) PatchOrderStatus(orderID uint64, status string) error {
+	dbResponse := r.repo.DB.Model(&model.Order{}).Where("id = ?", orderID).Update("status", status)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to update order status in the database: %v", dbResponse.Error)
+		return dbResponse.Error
+	}
+	return nil
+}
+
+// #region ADMIN DASHBOARD
+
+// GetAdminCardsData retrieves the data for the admin dashboard cards (total pending orders, total sales, total expenses, total customers)
+func (r *RepositoryService) GetAdminCardsData() (*dto.AdminCardsDTO, error) {
+	var cards dto.AdminCardsDTO
+	// Fetch total pending orders
+	dbResponse := r.repo.DB.Raw(`SELECT * FROM total_pending_orders`).Scan(&cards.TotalPendingOrders)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve total pending orders from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	// Fetch total sales
+	dbResponse = r.repo.DB.Raw(`SELECT * FROM total_sales`).Scan(&cards.TotalSales)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve total sales from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	// Fetch total expenses
+	dbResponse = r.repo.DB.Raw(`SELECT * FROM total_expenses`).Scan(&cards.TotalExpenses)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve total expenses from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	// Fetch total customers
+	dbResponse = r.repo.DB.Raw(`SELECT * FROM total_customers`).Scan(&cards.TotalCustomers)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve total customers from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &cards, nil
+}
+
+// GetMonthlySalesData retrieves the monthly sales data for the admin dashboard
+func (r *RepositoryService) GetMonthlySalesData() (*[]dto.MonthlySalesDTO, error) {
+	var sales []dto.MonthlySalesDTO
+	// query for retrieving monthly sales data
+	query := r.repo.DB.Table("orders o").
+	Select("DATE_TRUNC('month', o.order_date) as month, SUM(o.total_amount) as total_sales").
+	Where("o.status = 'delivered'").
+	Group("month").
+	Order("month DESC").
+	Limit(12)
+
+	dbResponse := query.Scan(&sales)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve monthly sales data from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &sales, nil
+}
