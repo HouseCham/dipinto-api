@@ -15,6 +15,7 @@ func SetupRoutes(app *fiber.App, userHandler *handlers.UserHandler, productHandl
 	app.Get("/api/v1/products", productHandler.GetAllProductsCatalogue)
 	app.Post("/api/v1/users/login", userHandler.LoginUser)
 	app.Post("/api/v1/users/sign-up", userHandler.InsertUser)
+	app.Post("/api/v1/users/logout", userHandler.LogoutUser)
 
 	/* ========== User routes  ========== */
 	userRoutes := app.Group("/api/v1/users")
