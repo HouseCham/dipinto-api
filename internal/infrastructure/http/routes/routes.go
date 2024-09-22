@@ -9,7 +9,7 @@ import (
 func SetupRoutes(app *fiber.App, userHandler *handlers.UserHandler, productHandler *handlers.ProductHandler, categoryHandler *handlers.CategoryHandler, orderHandler *handlers.OrderHandler, adminHandler *handlers.AdminHandler) {
 	/* ========== GLOBAL  ========== */
 	// === MIDDLEWARE ===
-	app.Use(userHandler.MiddlewareService.VerifyOrigin())
+	// app.Use(userHandler.MiddlewareService.VerifyOrigin())
 	// === HANDLERS ===
 	app.Post("/api/v1/users", userHandler.InsertUser)
 	app.Get("/api/v1/products", productHandler.GetAllProductsCatalogue)

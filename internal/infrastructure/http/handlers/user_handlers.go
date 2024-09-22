@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/HouseCham/dipinto-api/internal/application/services"
 	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/middleware"
@@ -9,6 +10,8 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/log"
 )
+
+const CookieSecure = false
 
 type UserHandler struct {
 	AuthService       *services.AuthService
@@ -140,10 +143,37 @@ func (h *UserHandler) LoginUser(c fiber.Ctx) error {
 		})
 	}
 
+	// create http only cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     "jwt",
+		Value:    token,
+		HTTPOnly: true,
+		Secure:   CookieSecure,
+		Path:     "/",
+		Expires:  time.Now().Add(24 * time.Hour),
+	})
+
+	// Return the response with cookie
 	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
 		StatusCode: fiber.StatusOK,
 		Message:    "User logged in successfully",
 		Data:       token,
+	})
+}
+
+// LogoutUser is a handler function that removes the http only cookie from the client
+func (h *UserHandler) LogoutUser(c fiber.Ctx) error {
+	// create http only cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     "jwt",
+		Value:    "",
+		HTTPOnly: true,
+		Secure:   CookieSecure,
+	})
+
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusOK,
+		Message:    "User logged out successfully",
 	})
 }
 
@@ -156,7 +186,7 @@ func (h *UserHandler) GetAllCustomers(c fiber.Ctx) error {
 	// Convert the offset and limit query parameters to integers
 	offsetInt, err := strconv.Atoi(offset)
 	limitInt, err1 := strconv.Atoi(limit)
-	if (err != nil || err1 != nil) {
+	if err != nil || err1 != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
 			StatusCode: fiber.StatusBadRequest,
 			Message:    "Invalid pagination parameters",
