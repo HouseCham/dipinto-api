@@ -15,6 +15,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/log"
 	"github.com/gofiber/fiber/v3/middleware/cors"
+	mercadopago "github.com/mercadopago/sdk-go/pkg/config"
 )
 
 func main() {
@@ -39,7 +40,7 @@ func main() {
 
 	// Setting up CORS middleware
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: []string{cfg.Client.Origin},
+		AllowOrigins: []string{"http://localhost:3000", "https://dipinto.netlify.app"},
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
 	}))
 	log.Info("Fiber app is set up")
@@ -57,11 +58,16 @@ func main() {
 
 // injectDependencies injects the dependencies into the handlers
 func injectDependencies(cfg *config.Config, database *db.Database, v *validator.Validate) (*handlers.UserHandler, *handlers.ProductHandler, *handlers.CategoryHandler, *handlers.OrderHandler) {
+	paymentCfg, err := mercadopago.New(cfg.Payment.MercadoPago.AccessToken)
+	if err != nil {
+		log.Fatalf("Failed to set up MercadoPago configuration: %v", err)
+	}
 	// Set up the services for dependency injection
 	authService := services.NewAuthService(auth.SetUpAuthService(cfg))
 	middlewareService := services.NewMiddlewareService(middleware.SetupMiddlewareService(cfg))
 	repositoryService := services.NewRepositoryService(database)
 	modelService := services.NewModelService(v)
+	paymentService := services.NewPaymentService(paymentCfg)
 	// Set up the http handlers
 	return &handlers.UserHandler{
 		AuthService: authService,
@@ -80,5 +86,6 @@ func injectDependencies(cfg *config.Config, database *db.Database, v *validator.
 		MiddlewareService: middlewareService,
 		RepositoryService: repositoryService,
 		ModelService: modelService,
+		PaymentService: paymentService,
 	}
 }

@@ -20,6 +20,16 @@ type Config struct {
 	Client struct {
 		Origin string
 	}
+	Payment Payment `mapstructure:"payment"`
+}
+
+type Payment struct {
+	MercadoPago PaymentKeys `mapstructure:"mercadopago"`
+}
+
+type PaymentKeys struct {
+	AccessToken string `mapstructure:"access_token"`
+	PublicKey   string `mapstructure:"public_key"`
 }
 
 // LoadConfig loads the configuration from the config file

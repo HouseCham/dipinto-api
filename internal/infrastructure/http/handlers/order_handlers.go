@@ -12,6 +12,7 @@ type OrderHandler struct {
 	MiddlewareService *services.MiddlewareService
 	RepositoryService *services.RepositoryService
 	ModelService      *services.ModelService
+	PaymentService   *services.PaymentService
 }
 
 // GetAdminOrderList is a handler function that retrieves all orders from the database
@@ -68,5 +69,21 @@ func (h *OrderHandler) GetAdminOrderDetailsById(c fiber.Ctx) error {
 		StatusCode: fiber.StatusOK,
 		Message:    "Order details retrieved successfully",
 		Data:       order,
+	})
+}
+
+// GenerateMercadoPagoPreference is a handler function that generates a new preference in MercadoPago API
+func (h *OrderHandler) GenerateMercadoPagoPreference(c fiber.Ctx) error {
+	pref, err := h.PaymentService.CreatePreference()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to create preference in MercadoPago API",
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusOK,
+		Message:    "Preference created successfully",
+		Data:       pref,
 	})
 }
