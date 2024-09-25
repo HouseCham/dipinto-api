@@ -87,9 +87,20 @@ func (r *RepositoryService) GetUserById(userID uint64) (*model.User, error) {
 }
 
 // GetUserByEmail retrieves a user from the database by email
-func (r *RepositoryService) GetUserByEmail(email string) (*model.User, error) {
+func (r *RepositoryService) GetUserByEmail(email string, isAdmin bool) (*model.User, error) {
 	var user model.User
-	dbResponse := r.repo.DB.Where("deleted_at IS NULL").Where("email = ?", email).Omit("CreatedAt", "UpdatedAt", "DeletedAt").First(&user)
+	query := r.repo.DB.Table("users u").
+	Select("u.id, u.name, u.email, u.phone, u.role, u.password").
+	Where("u.deleted_at IS NULL").
+	Where("u.email = ?", email)
+
+	if isAdmin {
+		query = query.Where("u.role = 'admin'")
+	} else {
+		query = query.Where("u.role = 'customer'")
+	}
+
+	dbResponse := query.Scan(&user) 
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve user from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error

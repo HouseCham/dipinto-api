@@ -46,11 +46,11 @@ func main() {
 	}))
 	log.Info("Fiber app is set up")
 
-	userHandler, productHandler, categoryHandler, orderHandler, adminHandler := injectDependencies(cfg, database, v.SetUpValidator())
+	adminHandler, clientHandler := injectDependencies(cfg, database, v.SetUpValidator())
 	log.Info("Handlers are set up")
 
 	// Set up the routes and handlers for the app
-	routes.SetupRoutes(app, userHandler, productHandler, categoryHandler, orderHandler, adminHandler)
+	routes.SetupRoutes(app, adminHandler, clientHandler)
 	log.Info("Routes are set up")
 
 	log.Infof("Server is running on port %d", cfg.Server.Port)
@@ -58,32 +58,22 @@ func main() {
 }
 
 // injectDependencies injects the dependencies into the handlers
-func injectDependencies(cfg *config.Config, database *db.Database, v *validator.Validate) (*handlers.UserHandler, *handlers.ProductHandler, *handlers.CategoryHandler, *handlers.OrderHandler, *handlers.AdminHandler) {
+func injectDependencies(cfg *config.Config, database *db.Database, v *validator.Validate) (*handlers.AdminHandler, *handlers.ClientHandler) {
 	// Set up the services for dependency injection
 	authService := services.NewAuthService(auth.SetUpAuthService(cfg))
 	middlewareService := services.NewMiddlewareService(middleware.SetupMiddlewareService(cfg))
 	repositoryService := services.NewRepositoryService(database)
 	modelService := services.NewModelService(v)
 	// Set up the http handlers
-	return &handlers.UserHandler{
+	return &handlers.AdminHandler{
+			MiddlewareService: middlewareService,
+			RepositoryService: repositoryService,
+			ModelService:      modelService,
 			AuthService:       authService,
+		}, &handlers.ClientHandler{
 			MiddlewareService: middlewareService,
 			RepositoryService: repositoryService,
 			ModelService:      modelService,
-		}, &handlers.ProductHandler{
-			MiddlewareService: middlewareService,
-			RepositoryService: repositoryService,
-			ModelService:      modelService,
-		}, &handlers.CategoryHandler{
-			MiddlewareService: middlewareService,
-			RepositoryService: repositoryService,
-			ModelService:      modelService,
-		}, &handlers.OrderHandler{
-			MiddlewareService: middlewareService,
-			RepositoryService: repositoryService,
-			ModelService:      modelService,
-		}, &handlers.AdminHandler{
-			MiddlewareService: middlewareService,
-			RepositoryService: repositoryService,
+			AuthService:       authService,
 		}
 }
