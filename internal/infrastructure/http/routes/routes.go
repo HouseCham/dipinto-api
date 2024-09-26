@@ -9,6 +9,18 @@ import (
 func SetupRoutes(app *fiber.App, adminHandler *handlers.AdminHandler, clientHandler *handlers.ClientHandler) {
 	/* ========== GLOBAL  ========== */
 	app.Post("/api/v1/users/logout", adminHandler.LoginAdmin)
+
+	
+	/* ========== CLIENT  ========== */
+	clientRoutes := app.Group("/api/v1")
+	// === CUSTOMER ENDPOINTS ===
+	clientRoutes.Post("/customers/login", clientHandler.LoginCustomer)
+	clientRoutes.Post("/customers/sign-up", clientHandler.InsertCustomer)
+	// === PRODUCTS ENDPOINTS ===
+	clientRoutes.Get("/products", clientHandler.GetAllProductsCatalogue)
+	clientRoutes.Get("products/:slug", clientHandler.GetProductBySlug)
+
+
 	/* ========== ADMIN  ========== */
 	adminRoutes := app.Group("/api/v1")
 	adminRoutes.Post("/users/login", adminHandler.LoginAdmin)
@@ -27,13 +39,4 @@ func SetupRoutes(app *fiber.App, adminHandler *handlers.AdminHandler, clientHand
 	adminRoutes.Get("/orders/details/:id", adminHandler.GetAdminOrderDetailsById)
 	// === CUSTOMERS ENDPOINTS ===
 	adminRoutes.Get("/get-customers", adminHandler.GetAllCustomers)
-
-	/* ========== CLIENT  ========== */
-	clientRoutes := app.Group("/api/v1")
-	// === CUSTOMER ENDPOINTS ===
-	clientRoutes.Post("/customers/login", clientHandler.LoginCustomer)
-	clientRoutes.Post("/customers/sign-up", clientHandler.InsertCustomer)
-	// === PRODUCTS ENDPOINTS ===
-	clientRoutes.Get("/products", clientHandler.GetAllProductsCatalogue)
-	clientRoutes.Get("products/:slug", clientHandler.GetProductBySlug)
 }
