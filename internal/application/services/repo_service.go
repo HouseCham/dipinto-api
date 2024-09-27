@@ -537,3 +537,141 @@ func (r *RepositoryService) GetMonthlySalesData() (*[]dto.MonthlySalesDTO, error
 	}
 	return &sales, nil
 }
+
+//#region CARTS
+// InsertCart inserts a new cart into the database
+func (r *RepositoryService) InsertCart(newCart *model.Cart) (uint64, error) {
+	dbResponse := r.repo.DB.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&newCart)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to insert cart into the database: %v", dbResponse.Error)
+		return 0, dbResponse.Error
+	}
+	return newCart.ID, nil
+}
+
+// GetCartByUserId retrieves a cart from the database by user ID
+func (r *RepositoryService) GetCartByUserId(userID uint64) (*model.Cart, error) {
+	var cart model.Cart
+	dbResponse := r.repo.DB.Where("user_id = ?", userID).First(&cart)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve cart from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &cart, nil
+}
+
+// InsertCartProduct inserts a new cart product into the database
+func (r *RepositoryService) InsertCartProduct(newCartProduct *model.CartProduct) (uint64, error) {
+	dbResponse := r.repo.DB.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&newCartProduct)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to insert cart product into the database: %v", dbResponse.Error)
+		return 0, dbResponse.Error
+	}
+	return newCartProduct.ID, nil
+}
+
+// UpdateCartProduct updates a cart product in the database
+func (r *RepositoryService) UpdateCartProduct(updatedCartProduct *model.CartProduct) error {
+	dbResponse := r.repo.DB.Save(updatedCartProduct)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to update cart product in the database: %v", dbResponse.Error)
+		return dbResponse.Error
+	}
+	return nil
+}
+
+// DeleteCartProduct deletes a cart product from the database
+func (r *RepositoryService) DeleteCartProduct(cartProductID uint64) error {
+	dbResponse := r.repo.DB.Delete(&model.CartProduct{}, cartProductID)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to delete cart product from the database: %v", dbResponse.Error)
+		return dbResponse.Error
+	}
+	return nil
+}
+
+// GetCartProductByCartProductId retrieves a cart product from the database by cart and product ID
+func (r *RepositoryService) GetCartProductByCartProductId(cartID uint64, productID uint64) (*model.CartProduct, error) {
+	var cartProduct model.CartProduct
+	dbResponse := r.repo.DB.Where("cart_id = ? AND product_id = ?", cartID, productID).First(&cartProduct)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve cart product from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &cartProduct, nil
+}
+
+// UpdateProductCartQuantity updates the quantity of a product in the cart
+func (r *RepositoryService) UpdateProductCartQuantity(cartID uint64, productID uint64, quantity int) error {
+	dbResponse := r.repo.DB.Model(&model.CartProduct{}).
+	Where("cart_id = ? AND product_id = ?", cartID, productID).
+	Update("quantity", quantity)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to update product cart quantity in the database: %v", dbResponse.Error)
+		return dbResponse.Error
+	}
+	return nil
+}
+
+//#region WISHLIST
+// InsertWishlist inserts a new wishlist into the database
+func (r *RepositoryService) InsertWishlist(newWishlist *model.Wishlist) (uint64, error) {
+	dbResponse := r.repo.DB.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&newWishlist)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to insert wishlist into the database: %v", dbResponse.Error)
+		return 0, dbResponse.Error
+	}
+	return newWishlist.ID, nil
+}
+
+// GetWishlistByUserId retrieves a wishlist from the database by user ID
+func (r *RepositoryService) GetWishlistByUserId(userID uint64) (*model.Wishlist, error) {
+	var wishlist model.Wishlist
+	dbResponse := r.repo.DB.Where("user_id = ?", userID).First(&wishlist)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve wishlist from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &wishlist, nil
+}
+
+// InsertWishlistProduct inserts a new wishlist product into the database
+func (r *RepositoryService) InsertWishlistProduct(newWishlistProduct *model.WishlistProduct) (uint64, error) {
+	dbResponse := r.repo.DB.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&newWishlistProduct)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to insert wishlist product into the database: %v", dbResponse.Error)
+		return 0, dbResponse.Error
+	}
+	return newWishlistProduct.ID, nil
+}
+
+// GetWishlistProductsByWishlistId retrieves all wishlist products from the database by wishlist ID
+func (r *RepositoryService) GetWishlistProductsByWishlistId(wishlistID uint64) (*[]model.WishlistProduct, error) {
+	var wishlistProducts []model.WishlistProduct
+	dbResponse := r.repo.DB.Where("wishlist_id = ?", wishlistID).Find(&wishlistProducts)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve wishlist products from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &wishlistProducts, nil
+}
+
+// UpdateWishlistProduct updates a wishlist product in the database
+func (r *RepositoryService) UpdateWishlistProduct(updatedWishlistProduct *model.WishlistProduct) error {
+	dbResponse := r.repo.DB.Save(updatedWishlistProduct)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to update wishlist product in the database: %v", dbResponse.Error)
+		return dbResponse.Error
+	}
+	return nil
+}
+
+// DeleteWishlistProduct deletes a wishlist product from the database
+func (r *RepositoryService) DeleteWishlistProduct(wishlistProductID uint64) error {
+	dbResponse := r.repo.DB.Delete(&model.WishlistProduct{}, wishlistProductID)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to delete wishlist product from the database: %v", dbResponse.Error)
+		return dbResponse.Error
+	}
+	return nil
+}

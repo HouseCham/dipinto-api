@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/HouseCham/dipinto-api/internal/application/services"
+	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/middleware"
 	"github.com/HouseCham/dipinto-api/internal/domain/model"
 	"github.com/HouseCham/dipinto-api/utils"
 	"github.com/gofiber/fiber/v3"
@@ -18,7 +19,42 @@ type ClientHandler struct {
 	AuthService       *services.AuthService
 }
 
-//#region Categories
+// RenewToken is a handler function that renews the user's token
+func (h *ClientHandler) RefreshToken(c fiber.Ctx) error {
+	// get claims from context
+	claims := c.Locals("claims").(*middleware.Claims)
+
+	user := &model.User{
+		ID:   utils.StringToUint64(claims.ID), // Ensure this function exists in the utils package
+		Name: claims.Username,
+		Role: claims.Role,
+	}
+	// generate new token
+	token, err := h.AuthService.GenerateToken(user)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to generate token",
+		})
+	}
+
+	// create http only cookie
+	c.Cookie(&fiber.Cookie{
+		Name:     "jwt",
+		Value:    token,
+		HTTPOnly: true,
+		Secure:   CookieSecure,
+		Path:     "/",
+		Expires:  time.Now().Add(24 * time.Hour),
+	})
+
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusOK,
+		Message:    "Token renewed successfully",
+	})
+}
+
+// #region Categories
 // GetAllCategories is a handler function that retrieves all categories from the database
 func (h *ClientHandler) GetAllCategories(c fiber.Ctx) error {
 	offset := c.Query("offset", "0")
@@ -28,7 +64,7 @@ func (h *ClientHandler) GetAllCategories(c fiber.Ctx) error {
 	// Convert the offset and limit query parameters to integers
 	offsetInt, err := strconv.Atoi(offset)
 	limitInt, err1 := strconv.Atoi(limit)
-	if (err != nil || err1 != nil) {
+	if err != nil || err1 != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
 			StatusCode: fiber.StatusBadRequest,
 			Message:    "Invalid pagination parameters",
@@ -50,9 +86,10 @@ func (h *ClientHandler) GetAllCategories(c fiber.Ctx) error {
 		Data:       categories,
 	})
 }
+
 //#endregion Categories
 
-//#region Products
+// #region Products
 // GetAllProducts is a handler function that retrieves all products from the database
 func (h *ClientHandler) GetAllProductsCatalogue(c fiber.Ctx) error {
 	products, err := h.RepositoryService.GetAllProductsCatalogue()
@@ -94,9 +131,10 @@ func (h *ClientHandler) GetProductBySlug(c fiber.Ctx) error {
 		Data:       productDto,
 	})
 }
+
 //#endregion Products
 
-//#region Customers
+// #region Customers
 // InsertCustomer is a handler function that inserts a new customer into the database
 func (h *ClientHandler) InsertCustomer(c fiber.Ctx) error {
 	var request model.User
@@ -142,6 +180,7 @@ func (h *ClientHandler) InsertCustomer(c fiber.Ctx) error {
 		Data:       userID,
 	})
 }
+
 // LoginCustomer is a handler function that logs a customer into the application
 func (h *ClientHandler) LoginCustomer(c fiber.Ctx) error {
 	var request model.LoginUser
@@ -197,7 +236,7 @@ func (h *ClientHandler) LoginCustomer(c fiber.Ctx) error {
 	})
 
 	userLogged := model.User{
-		Name: dbUser.Name,
+		Name:  dbUser.Name,
 		Email: dbUser.Email,
 		Phone: dbUser.Phone,
 	}
@@ -209,4 +248,88 @@ func (h *ClientHandler) LoginCustomer(c fiber.Ctx) error {
 		Data:       userLogged,
 	})
 }
+
 //#endregion Customers
+
+// #region Carts
+// InsertCart is a handler function that inserts a new cart into the database
+func (h *ClientHandler) InsertCart(c fiber.Ctx) error {
+	claims := c.Locals("claims").(*middleware.Claims)
+	request := model.Cart{
+		UserID: utils.StringToUint64(claims.ID),
+	}
+	// Insert the cart into the database
+	cartID, err := h.RepositoryService.InsertCart(&request)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to create cart in the database",
+		})
+	}
+	return c.Status(fiber.StatusCreated).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusCreated,
+		Message:    "Cart created successfully",
+		Data:       cartID,
+	})
+}
+
+// AddProductToCart is a handler function that adds a product to the cart
+func (h *ClientHandler) AddProductToCart(c fiber.Ctx) error {
+	claims := c.Locals("claims").(*middleware.Claims)
+	var request model.CartProduct
+	if err := c.Bind().JSON(&request); err != nil {
+		log.Warnf("Failed to parse cart product request body: %v", err)
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Error parsing cart product request body",
+		})
+	}
+	// Get Cart from the database using the user ID
+	cart, err := h.RepositoryService.GetCartByUserId(utils.StringToUint64(claims.ID))
+	// Check if the cart exists
+	if err != nil {
+		// If the cart does not exist, create a new cart
+		cartID, err := h.RepositoryService.InsertCart(&model.Cart{
+			UserID: utils.StringToUint64(claims.ID),
+		})
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+				StatusCode: fiber.StatusInternalServerError,
+				Message:    "Failed to create cart in the database",
+			})
+		}
+		cart.ID = cartID
+	}
+
+	cartProduct := model.CartProduct{
+		CartID:   cart.ID,
+		ProductID: request.ProductID,
+		Quantity: request.Quantity,
+	}
+	// Validate if the cart product exists
+	_, err = h.RepositoryService.GetCartProductByCartProductId(cart.ID, request.ProductID)
+	// if err == nil, product already exists in the cart -> update the quantity
+	if err == nil {
+		// update the quantity in the cart
+		err = h.RepositoryService.UpdateProductCartQuantity(cart.ID, request.ProductID, request.Quantity)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+				StatusCode: fiber.StatusInternalServerError,
+				Message:    "Failed to update product quantity in cart",
+			})
+		}
+	} else {
+		// Insert the product into the cart
+		_, err = h.RepositoryService.InsertCartProduct(&cartProduct)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+				StatusCode: fiber.StatusInternalServerError,
+				Message:    "Failed to add product to cart",
+			})
+		}
+	}
+	return c.Status(fiber.StatusCreated).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusCreated,
+		Message:    "Product added to cart successfully",
+	})
+}
