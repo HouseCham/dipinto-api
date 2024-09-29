@@ -21,16 +21,19 @@ func SetupRoutes(app *fiber.App, adminHandler *handlers.AdminHandler, clientHand
 	clientRoutes.Get("/categories", clientHandler.GetAllCategories)
 	clientRoutes.Get("/products/:slug", clientHandler.GetProductBySlug)
 
+	
+	/* ========== CUSTOMER JWT ENDPOINTS  ========== */
+	clientRoutes.Use(adminHandler.MiddlewareService.VerifyJWT())
+	// === RENEW TOKEN ===
+	clientRoutes.Post("/users/refresh-token", clientHandler.RefreshToken)
+	
+	
+	
 	/* ========== ADMIN  ========== */
 	adminRoutes := app.Group("/api/v1")
 	adminRoutes.Post("/users/login", adminHandler.LoginAdmin)
 	// === MIDDLEWARE ===
 	adminRoutes.Use(adminHandler.MiddlewareService.VerifyJWT())
-
-	/* ========== CUSTOMER JWT ENDPOINTS  ========== */
-
-	// === RENEW TOKEN ===
-	adminRoutes.Post("/users/renew-token", clientHandler.RefreshToken)
 
 	adminRoutes.Use(adminHandler.MiddlewareService.VerifyAdmin())
 	adminRoutes.Get("/admin/dashboard", adminHandler.GetAdminDashboard)

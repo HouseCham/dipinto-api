@@ -5,20 +5,20 @@ import (
 )
 
 type Cart struct {
-	ID           uint64         `gorm:"primaryKey;autoIncrement:true"`
-	UserID       uint64         `gorm:"index;not null"`
-	CreatedAt    time.Time     `gorm:"autoCreateTime"`
-	UpdatedAt    time.Time     `gorm:"autoUpdateTime"`
-	CartProducts []CartProduct `gorm:"foreignKey:CartID"`
+	ID           uint64         `gorm:"primaryKey;autoIncrement:true" json:"id"`
+	UserID       uint64         `gorm:"index;not null" json:"user_id"`
+	CreatedAt    time.Time     `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt    time.Time     `gorm:"autoUpdateTime" json:"updated_at"`
+	CartProducts []CartProduct `gorm:"foreignKey:CartID" json:"cart_products"`
 }
 
 type CartProduct struct {
-	ID        uint64     `gorm:"primaryKey;autoIncrement:true"`
-	CartID    uint64     `gorm:"index;not null"`
-	ProductID uint64     `gorm:"index;not null"`
-	Quantity  int       `gorm:"not null"`
-	AddedAt   time.Time `gorm:"autoCreateTime"`
+	ID        uint64     `gorm:"primaryKey;autoIncrement:true" json:"id"`
+	CartID    uint64     `gorm:"index;not null" json:"cart_id"`
+	ProductID uint64     `gorm:"index;not null" json:"product_id"`
+	Quantity  int       `gorm:"not null" json:"quantity"`
+	AddedAt   time.Time `gorm:"autoCreateTime" json:"added_at"`
 
-	Cart    Cart        `gorm:"foreignKey:CartID"`
-	Product ProductSize `gorm:"foreignKey:ProductID"`
+	Cart    Cart        `gorm:"foreignKey:CartID" json:"cart"`
+	Product ProductSize `gorm:"foreignKey:ProductID" json:"product"`
 }
