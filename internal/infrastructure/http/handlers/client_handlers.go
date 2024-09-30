@@ -91,8 +91,18 @@ func (h *ClientHandler) GetAllCategories(c fiber.Ctx) error {
 
 // #region Products
 // GetAllProducts is a handler function that retrieves all products from the database
-func (h *ClientHandler) GetAllProductsCatalogue(c fiber.Ctx) error {
-	products, err := h.RepositoryService.GetAllProductsCatalogue()
+func (h *ClientHandler) GetAllProductsCatalog(c fiber.Ctx) error {
+	searchParams := model.ClientSearchParams {
+		SearchValue: c.Query("search", ""),
+		CategoryID: utils.StringToUint64(c.Query("category_id", "0")),
+		MinPrice: utils.StringToFloat64(c.Query("price_min", "0")),
+		MaxPrice: utils.StringToFloat64(c.Query("price_limit", "0")),
+		OrderBy: c.Query("sort_by", "created_at"),
+		Offset: utils.StringToInt(c.Query("offset", "0")),
+		Limit: utils.StringToInt(c.Query("limit", "10")),
+	}
+
+	products, err := h.RepositoryService.GetAllProductsCatalog(searchParams)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
 			StatusCode: fiber.StatusInternalServerError,

@@ -50,9 +50,9 @@ func (r *RepositoryService) GetAllUsers() ([]model.User, error) {
 func (r *RepositoryService) GetAllCustomers(offset int, limit int, searchValue string) ([]model.User, error) {
 	var customers []model.User
 	query := r.repo.DB.Table("users u").
-	Select("u.id, u.name, u.email, u.phone, u.created_at").
-	Where("deleted_at IS NULL").
-	Where("role='customer'")
+		Select("u.id, u.name, u.email, u.phone, u.created_at").
+		Where("deleted_at IS NULL").
+		Where("role='customer'")
 
 	// Add search filter if searchValue is provided
 	if searchValue != "" {
@@ -90,9 +90,9 @@ func (r *RepositoryService) GetUserById(userID uint64) (*model.User, error) {
 func (r *RepositoryService) GetUserByEmail(email string, isAdmin bool) (*model.User, error) {
 	var user model.User
 	query := r.repo.DB.Table("users u").
-	Select("u.id, u.name, u.email, u.phone, u.role, u.password").
-	Where("u.deleted_at IS NULL").
-	Where("u.email = ?", email)
+		Select("u.id, u.name, u.email, u.phone, u.role, u.password").
+		Where("u.deleted_at IS NULL").
+		Where("u.email = ?", email)
 
 	if isAdmin {
 		query = query.Where("u.role = 'admin'")
@@ -100,7 +100,7 @@ func (r *RepositoryService) GetUserByEmail(email string, isAdmin bool) (*model.U
 		query = query.Where("u.role = 'customer'")
 	}
 
-	dbResponse := query.Scan(&user) 
+	dbResponse := query.Scan(&user)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve user from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error
@@ -217,26 +217,43 @@ func (r *RepositoryService) UpdateProduct(updatedProduct *model.Product, sizes *
 }
 
 // GetAllProducts retrieves all products from the database
-func (r *RepositoryService) GetAllProductsCatalogue() (*[]model.CatalogueProduct, error) {
+func (r *RepositoryService) GetAllProductsCatalog(params model.ClientSearchParams) (*[]model.CatalogueProduct, error) {
+	query := r.repo.DB.Table("products p").
+		Select("p.id, p.slug, p.name, c.name as category, p.images, s.price, s.discount").
+		Joins("INNER JOIN categories c ON p.category_id = c.id").
+		Joins("INNER JOIN product_sizes s ON p.id = s.product_id").
+		Joins("INNER JOIN (SELECT product_id, MIN(price) AS min_price FROM product_sizes WHERE is_available = true GROUP BY product_id) min_sizes ON s.product_id = min_sizes.product_id AND s.price = min_sizes.min_price").
+		Where("s.is_available = true")
+
+	// Add category filter if categoryId is provided
+	if params.CategoryID != 0 {
+		query = query.Where("p.category_id = ?", params.CategoryID)
+	}
+
+	// Add search filter if searchValue is provided
+	if params.SearchValue != "" {
+		searchPattern := "%" + params.SearchValue + "%"
+		query = query.Where("p.name ILIKE ? OR p.description ILIKE ?", searchPattern, searchPattern)
+	}
+
+	// Add price filter if MinPrice and MaxPrice are provided
+	if params.MinPrice > 0 {
+		query = query.Where("s.price >= ?", params.MinPrice)
+	}
+	if params.MaxPrice > 0 {
+		query = query.Where("s.price <= ?", params.MaxPrice)
+	}
+
+	// Adding offset and limit for pagination
+	if params.Offset >= 0 {
+		query = query.Offset(params.Offset)
+	}
+	if params.Limit > 0 {
+		query = query.Limit(params.Limit)
+	}
+
 	var products []model.CatalogueProduct
-	query := `
-		SELECT p.id, p.slug, p.name, p.images, s.price, s.discount
-		FROM
-			products p
-			INNER JOIN product_sizes s ON p.id = s.product_id
-			INNER JOIN (
-				SELECT product_id, MIN(price) AS min_price
-				FROM product_sizes
-				WHERE
-					is_available = true
-				GROUP BY
-					product_id
-			) min_sizes ON s.product_id = min_sizes.product_id
-			AND s.price = min_sizes.min_price
-		WHERE
-			s.is_available = true;
-	`
-	dbResponse := r.repo.DB.Raw(query).Scan(&products)
+	dbResponse := query.Scan(&products)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve products from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error
@@ -326,7 +343,7 @@ func (r *RepositoryService) GetProductBySlug(slug string) (*model.Product, *[]mo
 func (r *RepositoryService) GetAllCategories(offset int, limit int, searchValue string) (*[]model.Category, error) {
 	var categories []model.Category
 	query := r.repo.DB.Table("categories c").
-	Select("c.id, c.name, c.description")
+		Select("c.id, c.name, c.description")
 
 	// Add search filter if searchValue is provided
 	if searchValue != "" {
@@ -408,8 +425,8 @@ func (r *RepositoryService) GetTopFiveCategoriesSold() (*[]dto.TopCategoryDTO, e
 func (r *RepositoryService) GetAdminOrderList(offset int, limit int, searchValue string, orderStatus string, paymentType string) (*[]model.OrderListItem, error) {
 	var orders []model.OrderListItem
 	query := r.repo.DB.Table("orders o").
-	Select("o.id, o.order_date, u.name, o.payment_method, o.total_amount, o.status, o.delivery_date, o.tracking_id, o.shipping_company").
-	Joins("INNER JOIN users u ON o.user_id = u.id")
+		Select("o.id, o.order_date, u.name, o.payment_method, o.total_amount, o.status, o.delivery_date, o.tracking_id, o.shipping_company").
+		Joins("INNER JOIN users u ON o.user_id = u.id")
 
 	// Add search filter if searchValue is provided
 	if searchValue != "" {
@@ -524,11 +541,11 @@ func (r *RepositoryService) GetMonthlySalesData() (*[]dto.MonthlySalesDTO, error
 	var sales []dto.MonthlySalesDTO
 	// query for retrieving monthly sales data
 	query := r.repo.DB.Table("orders o").
-	Select("DATE_TRUNC('month', o.order_date) as month, SUM(o.total_amount) as total_sales").
-	Where("o.status = 'delivered'").
-	Group("month").
-	Order("month DESC").
-	Limit(12)
+		Select("DATE_TRUNC('month', o.order_date) as month, SUM(o.total_amount) as total_sales").
+		Where("o.status = 'delivered'").
+		Group("month").
+		Order("month DESC").
+		Limit(12)
 
 	dbResponse := query.Scan(&sales)
 	if dbResponse.Error != nil {
@@ -538,7 +555,7 @@ func (r *RepositoryService) GetMonthlySalesData() (*[]dto.MonthlySalesDTO, error
 	return &sales, nil
 }
 
-//#region CARTS
+// #region CARTS
 // InsertCart inserts a new cart into the database
 func (r *RepositoryService) InsertCart(newCart *model.Cart) (uint64, error) {
 	dbResponse := r.repo.DB.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&newCart)
@@ -604,8 +621,8 @@ func (r *RepositoryService) GetCartProductByCartProductId(cartID uint64, product
 // UpdateProductCartQuantity updates the quantity of a product in the cart
 func (r *RepositoryService) UpdateProductCartQuantity(cartID uint64, productID uint64, quantity int) error {
 	dbResponse := r.repo.DB.Model(&model.CartProduct{}).
-	Where("cart_id = ? AND product_id = ?", cartID, productID).
-	Update("quantity", quantity)
+		Where("cart_id = ? AND product_id = ?", cartID, productID).
+		Update("quantity", quantity)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to update product cart quantity in the database: %v", dbResponse.Error)
 		return dbResponse.Error
@@ -613,7 +630,7 @@ func (r *RepositoryService) UpdateProductCartQuantity(cartID uint64, productID u
 	return nil
 }
 
-//#region WISHLIST
+// #region WISHLIST
 // InsertWishlist inserts a new wishlist into the database
 func (r *RepositoryService) InsertWishlist(newWishlist *model.Wishlist) (uint64, error) {
 	dbResponse := r.repo.DB.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&newWishlist)

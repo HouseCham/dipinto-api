@@ -32,12 +32,13 @@ type ProductSize struct {
 }
 
 type CatalogueProduct struct {
-	ID       uint64 `json:"id"`
-	Slug     string `json:"slug"`
-	Name     string `json:"name"`
-	ImageUrl string `json:"image_url"`
-	Price    string `json:"price"`
-	Discount string `json:"discount"`
+	ID       uint64          `json:"id"`
+	Slug     string          `json:"slug"`
+	Name     string          `json:"name"`
+	Category string          `json:"category"`
+	Images   json.RawMessage `json:"images"`
+	Price    string          `json:"price"`
+	Discount string          `json:"discount"`
 }
 
 func (ProductSize) TableName() string {
