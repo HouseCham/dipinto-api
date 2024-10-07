@@ -259,6 +259,35 @@ func (h *ClientHandler) LoginCustomer(c fiber.Ctx) error {
 	})
 }
 
+// GetCustomerWishlist is a handler function that retrieves the customer's wishlist
+func (h *ClientHandler) GetCustomerWishlist(c fiber.Ctx) error {
+	claims := c.Locals("claims").(*middleware.Claims)
+	userID := utils.StringToUint64(claims.ID)
+	// Retrieve the user's wishlist from the database
+	wishlist, err := h.RepositoryService.GetWishlistByUserId(userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve wishlist information",
+		})
+	}
+	// Retrieve the wishlist products from the database
+	wishlistProducts, err := h.RepositoryService.GetWishlistProductsById(wishlist.ID, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve wishlist products information",
+		})
+	}
+
+	wishlist.WishlistProducts = *wishlistProducts
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusOK,
+		Message:    "Wishlist retrieved successfully",
+		Data:       utils.ParseWishlistToDTO(wishlist),
+	})
+}
+
 //#endregion Customers
 
 // #region Carts

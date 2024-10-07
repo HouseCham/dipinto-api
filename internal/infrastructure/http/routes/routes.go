@@ -26,6 +26,7 @@ func SetupRoutes(app *fiber.App, adminHandler *handlers.AdminHandler, clientHand
 	clientRoutes.Use(adminHandler.MiddlewareService.VerifyJWT())
 	// === RENEW TOKEN ===
 	clientRoutes.Post("/users/refresh-token", clientHandler.RefreshToken)
+	clientRoutes.Get("/customers/wishlist", clientHandler.GetCustomerWishlist)
 	
 	/* ========== ADMIN  ========== */
 	adminRoutes := app.Group("/api/v1")

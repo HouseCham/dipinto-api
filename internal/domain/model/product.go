@@ -31,7 +31,7 @@ type ProductSize struct {
 	DeletedAt   *time.Time
 }
 
-type CatalogueProduct struct {
+type CatalogProduct struct {
 	ID       uint64          `json:"id"`
 	Slug     string          `json:"slug"`
 	Name     string          `json:"name"`

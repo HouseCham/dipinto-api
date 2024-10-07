@@ -217,7 +217,7 @@ func (r *RepositoryService) UpdateProduct(updatedProduct *model.Product, sizes *
 }
 
 // GetAllProducts retrieves all products from the database
-func (r *RepositoryService) GetAllProductsCatalog(params model.ClientSearchParams) (*[]model.CatalogueProduct, error) {
+func (r *RepositoryService) GetAllProductsCatalog(params model.ClientSearchParams) (*[]model.CatalogProduct, error) {
 	query := r.repo.DB.Table("products p").
 		Select("p.id, p.slug, p.name, c.name as category, p.images, s.price, s.discount").
 		Joins("INNER JOIN categories c ON p.category_id = c.id").
@@ -252,7 +252,7 @@ func (r *RepositoryService) GetAllProductsCatalog(params model.ClientSearchParam
 		query = query.Limit(params.Limit)
 	}
 
-	var products []model.CatalogueProduct
+	var products []model.CatalogProduct
 	dbResponse := query.Scan(&products)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve products from the database: %v", dbResponse.Error)
@@ -663,9 +663,9 @@ func (r *RepositoryService) InsertWishlistProduct(newWishlistProduct *model.Wish
 }
 
 // GetWishlistProductsByWishlistId retrieves all wishlist products from the database by wishlist ID
-func (r *RepositoryService) GetWishlistProductsByWishlistId(wishlistID uint64) (*[]model.WishlistProduct, error) {
+func (r *RepositoryService) GetWishlistProductsById(wishlistID uint64, userID uint64) (*[]model.WishlistProduct, error) {
 	var wishlistProducts []model.WishlistProduct
-	dbResponse := r.repo.DB.Where("wishlist_id = ?", wishlistID).Find(&wishlistProducts)
+	dbResponse := r.repo.DB.Where("wishlist_id = ?", wishlistID).Where("user_id = ?", userID).Find(&wishlistProducts)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve wishlist products from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error
