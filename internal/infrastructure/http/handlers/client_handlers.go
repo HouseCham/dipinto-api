@@ -30,7 +30,7 @@ func (h *ClientHandler) RefreshToken(c fiber.Ctx) error {
 		Role: claims.Role,
 	}
 	// generate new token
-	token, err := h.AuthService.GenerateToken(user)
+	token, err := h.AuthService.GenerateToken(user, true)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
 			StatusCode: fiber.StatusInternalServerError,
@@ -227,7 +227,7 @@ func (h *ClientHandler) LoginCustomer(c fiber.Ctx) error {
 	}
 
 	// Generate a JWT token
-	token, err := h.AuthService.GenerateToken(dbUser)
+	token, err := h.AuthService.GenerateToken(dbUser, request.Remember)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
 			StatusCode: fiber.StatusInternalServerError,
@@ -237,7 +237,7 @@ func (h *ClientHandler) LoginCustomer(c fiber.Ctx) error {
 
 	// create http only cookie
 	c.Cookie(&fiber.Cookie{
-		Name:     "jwt",
+		Name:     "dipinto-token",
 		Value:    token,
 		HTTPOnly: true,
 		Secure:   CookieSecure,
@@ -285,6 +285,60 @@ func (h *ClientHandler) GetCustomerWishlist(c fiber.Ctx) error {
 		StatusCode: fiber.StatusOK,
 		Message:    "Wishlist retrieved successfully",
 		Data:       utils.ParseWishlistToDTO(wishlist),
+	})
+}
+
+// InsertAddress is a handler function that inserts a new address into the database
+func (h *ClientHandler) InsertCustomerAddress(c fiber.Ctx) error {
+	claims := c.Locals("claims").(*middleware.Claims)
+	var request model.Address
+	if err := c.Bind().JSON(&request); err != nil {
+		log.Warnf("Failed to parse address request body: %v", err)
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Error parsing address request body",
+		})
+	}
+	request.UserID = utils.StringToUint64(claims.ID)
+	request.Country = "México"
+	// Validate the request body
+	if errors := h.ModelService.ValidateRequestBody(request); errors != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Invalid request body",
+			Data:       errors,
+		})
+	}
+	// Insert the address into the database
+	addressID, err := h.RepositoryService.InsertAddress(&request)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to create address in the database",
+		})
+	}
+	return c.Status(fiber.StatusCreated).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusCreated,
+		Message:    "Address created successfully",
+		Data:       addressID,
+	})
+}
+
+// GetCustomerAddresses is a handler function that retrieves all addresses from the database
+func (h *ClientHandler) GetCustomerAddresses(c fiber.Ctx) error {
+	claims := c.Locals("claims").(*middleware.Claims)
+	// Retrieve all addresses from the database
+	addresses, err := h.RepositoryService.GetAddressesListByUserId(utils.StringToUint64(claims.ID))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve addresses from the database",
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusOK,
+		Message:    "Addresses retrieved successfully",
+		Data:       addresses,
 	})
 }
 

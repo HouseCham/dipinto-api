@@ -8,8 +8,7 @@ import (
 // SetupRoutes sets up the routes for the application
 func SetupRoutes(app *fiber.App, adminHandler *handlers.AdminHandler, clientHandler *handlers.ClientHandler) {
 	/* ========== GLOBAL  ========== */
-	app.Post("/api/v1/users/logout", adminHandler.LoginAdmin)
-
+	app.Post("/api/v1/users/logout", adminHandler.LogoutUser)
 	
 	/* ========== CLIENT  ========== */
 	clientRoutes := app.Group("/api/v1")
@@ -20,13 +19,15 @@ func SetupRoutes(app *fiber.App, adminHandler *handlers.AdminHandler, clientHand
 	clientRoutes.Get("/products", clientHandler.GetAllProductsCatalog)
 	clientRoutes.Get("/categories", clientHandler.GetAllCategories)
 	clientRoutes.Get("/products/:slug", clientHandler.GetProductBySlug)
-
 	
 	/* ========== CUSTOMER JWT ENDPOINTS  ========== */
 	clientRoutes.Use(adminHandler.MiddlewareService.VerifyJWT())
 	// === RENEW TOKEN ===
 	clientRoutes.Post("/users/refresh-token", clientHandler.RefreshToken)
 	clientRoutes.Get("/customers/wishlist", clientHandler.GetCustomerWishlist)
+	// === ADDRESS ENDPOINTS ===
+	clientRoutes.Post("/user/address/insert", clientHandler.InsertCustomerAddress)
+	clientRoutes.Get("/user/address", clientHandler.GetCustomerAddresses)
 	
 	/* ========== ADMIN  ========== */
 	adminRoutes := app.Group("/api/v1")

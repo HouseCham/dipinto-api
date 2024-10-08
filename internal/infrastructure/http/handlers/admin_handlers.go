@@ -59,7 +59,7 @@ func (h *AdminHandler) LoginAdmin(c fiber.Ctx) error {
 	}
 
 	// Generate a JWT token
-	token, err := h.AuthService.GenerateToken(dbAdmin)
+	token, err := h.AuthService.GenerateToken(dbAdmin, request.Remember)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
 			StatusCode: fiber.StatusInternalServerError,
@@ -69,7 +69,7 @@ func (h *AdminHandler) LoginAdmin(c fiber.Ctx) error {
 
 	// create http only cookie
 	c.Cookie(&fiber.Cookie{
-		Name:     "jwt",
+		Name:     "dipinto-token",
 		Value:    token,
 		HTTPOnly: true,
 		Secure:   CookieSecure,
@@ -151,7 +151,7 @@ func (h *AdminHandler) GetUserById(c fiber.Ctx) error {
 func (h *AdminHandler) LogoutUser(c fiber.Ctx) error {
 	// create http only cookie
 	c.Cookie(&fiber.Cookie{
-		Name:     "jwt",
+		Name:     "dipinto-token",
 		Value:    "",
 		HTTPOnly: true,
 		Secure:   CookieSecure,

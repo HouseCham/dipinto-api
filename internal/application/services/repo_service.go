@@ -692,3 +692,25 @@ func (r *RepositoryService) DeleteWishlistProduct(wishlistProductID uint64) erro
 	}
 	return nil
 }
+
+// #region ADDRESS
+// InsertAddress inserts a new address into the database
+func (r *RepositoryService) InsertAddress(newAddress *model.Address) (uint64, error) {
+	dbResponse := r.repo.DB.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&newAddress)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to insert address into the database: %v", dbResponse.Error)
+		return 0, dbResponse.Error
+	}
+	return newAddress.ID, nil
+}
+
+// GetAddressesListByUserId retrieves a list of addresses from the database by user ID
+func (r *RepositoryService) GetAddressesListByUserId(userID uint64) (*[]model.Address, error) {
+	var addresses []model.Address
+	dbResponse := r.repo.DB.Where("user_id = ?", userID).Where("deleted_at IS NULL").Omit("CreatedAt", "UpdatedAt", "DeletedAt", "Addressee", "Phone", "AddresseeEmail").Find(&addresses)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve addresses from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &addresses, nil
+}

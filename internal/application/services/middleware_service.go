@@ -1,13 +1,17 @@
 package services
 
 import (
+	"time"
+
 	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/middleware"
 	"github.com/HouseCham/dipinto-api/internal/domain/model"
 	"github.com/gofiber/fiber/v3"
+	"github.com/dgrijalva/jwt-go"
 )
 
 // MiddlewareService contains the business logic related to the middleware.
 type MiddlewareService struct {
+	jwtKey []byte
 	middleware *middleware.MiddlewareService
 }
 
@@ -22,7 +26,7 @@ func NewMiddlewareService(m *middleware.MiddlewareService) *MiddlewareService {
 func (m *MiddlewareService) VerifyJWT() fiber.Handler {
 	return func(c fiber.Ctx) error {
 		// Get the JWT token from the Authorization header
-		tokenStr := c.Get("Authorization")
+		tokenStr := c.Cookies("dipinto-token")
 		if tokenStr == "" {
 			return c.Status(fiber.StatusUnauthorized).JSON(model.HTTPResponse{
 				Message:   "No token provided",
@@ -30,23 +34,25 @@ func (m *MiddlewareService) VerifyJWT() fiber.Handler {
 			})
 		}
 
-		// Extract the token from the "Bearer " prefix
-		if len(tokenStr) > 7 && tokenStr[:7] == "Bearer " {
-			tokenStr = tokenStr[7:]
-		} else {
-			return c.Status(fiber.StatusUnauthorized).JSON(model.HTTPResponse{
-				Message:  "Invalid token format",
-				StatusCode: fiber.StatusUnauthorized,
-			})
-		}
-
 		// Parse and validate the token
 		claims, err := m.middleware.ValidateToken(tokenStr)
 		if err != nil {
-			return c.Status(fiber.StatusUnauthorized).JSON(model.HTTPResponse{
-				Message:  err.Error(),
-				StatusCode: fiber.StatusUnauthorized,
-			})
+			if (claims != nil && claims.Remember) {
+				// Generate a new token with the same claims
+				newToken := refreshToken(claims, m.jwtKey)
+				// Set the new token in the response
+				c.Cookie(&fiber.Cookie{
+					Name:     "dipinto-token",
+					Value:    newToken,
+					Expires:  time.Now().Add(24 * time.Hour),
+					HTTPOnly: true,
+				})
+			} else {
+				return c.Status(fiber.StatusUnauthorized).JSON(model.HTTPResponse{
+					Message:  err.Error(),
+					StatusCode: fiber.StatusUnauthorized,
+				})
+			}
 		}
 
 		// Store the claims in the request context
@@ -91,4 +97,33 @@ func (m *MiddlewareService) VerifyAdmin() fiber.Handler {
 		}
 		return c.Next()
 	}
+}
+// refreshToken generates a new JWT token with the same claims as the old token but with a new expiration time
+func refreshToken(claims *middleware.Claims, jwtKey []byte) string {
+	// Set the expiration time of the token
+	expirationTime := time.Now().Add(8 * time.Hour) // Token expires in 8 hours
+
+	// Create the claims
+	refreshClaims := &middleware.Claims{
+		ID:       claims.ID,
+		Username: claims.Username,
+		Role:     claims.Role,
+		Remember: claims.Remember,
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: expirationTime.Unix(),
+			IssuedAt:  time.Now().Unix(),
+			Issuer:    "dipinto-api",
+		},
+	}
+
+	// Create the token
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
+
+	// Sign the token with the secret key
+	signedToken, err := token.SignedString(jwtKey)
+	if err != nil {
+		return ""
+	}
+
+	return signedToken
 }
