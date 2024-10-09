@@ -92,14 +92,14 @@ func (h *ClientHandler) GetAllCategories(c fiber.Ctx) error {
 // #region Products
 // GetAllProducts is a handler function that retrieves all products from the database
 func (h *ClientHandler) GetAllProductsCatalog(c fiber.Ctx) error {
-	searchParams := model.ClientSearchParams {
+	searchParams := model.ClientSearchParams{
 		SearchValue: c.Query("search", ""),
-		CategoryID: utils.StringToUint64(c.Query("category_id", "0")),
-		MinPrice: utils.StringToFloat64(c.Query("price_min", "0")),
-		MaxPrice: utils.StringToFloat64(c.Query("price_limit", "0")),
-		OrderBy: c.Query("sort_by", "created_at"),
-		Offset: utils.StringToInt(c.Query("offset", "0")),
-		Limit: utils.StringToInt(c.Query("limit", "10")),
+		CategoryID:  utils.StringToUint64(c.Query("category_id", "0")),
+		MinPrice:    utils.StringToFloat64(c.Query("price_min", "0")),
+		MaxPrice:    utils.StringToFloat64(c.Query("price_limit", "0")),
+		OrderBy:     c.Query("sort_by", "created_at"),
+		Offset:      utils.StringToInt(c.Query("offset", "0")),
+		Limit:       utils.StringToInt(c.Query("limit", "10")),
 	}
 
 	products, err := h.RepositoryService.GetAllProductsCatalog(searchParams)
@@ -184,6 +184,28 @@ func (h *ClientHandler) InsertCustomer(c fiber.Ctx) error {
 		})
 	}
 
+	// Create a new cart for the user
+	_, err = h.RepositoryService.InsertCart(&model.Cart{
+		UserID: userID,
+	})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to create cart in the database",
+		})
+	}
+
+	// Create a new wishlist for the user
+	_, err = h.RepositoryService.InsertWishlist(&model.Wishlist{
+		UserID: userID,
+	})
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to create wishlist in the database",
+		})
+	}
+
 	return c.Status(fiber.StatusCreated).JSON(model.HTTPResponse{
 		StatusCode: fiber.StatusCreated,
 		Message:    "User created successfully",
@@ -259,6 +281,9 @@ func (h *ClientHandler) LoginCustomer(c fiber.Ctx) error {
 	})
 }
 
+//#endregion Customers
+
+// #region Wishlist
 // GetCustomerWishlist is a handler function that retrieves the customer's wishlist
 func (h *ClientHandler) GetCustomerWishlist(c fiber.Ctx) error {
 	claims := c.Locals("claims").(*middleware.Claims)
@@ -288,6 +313,85 @@ func (h *ClientHandler) GetCustomerWishlist(c fiber.Ctx) error {
 	})
 }
 
+// AddProductToWishlist is a handler function that adds a product to the wishlist
+func (h *ClientHandler) AddProductToWishlist(c fiber.Ctx) error {
+	claims := c.Locals("claims").(*middleware.Claims)
+	var request model.WishlistProduct
+	if err := c.Bind().JSON(&request); err != nil {
+		log.Warnf("Failed to parse wishlist product request body: %v", err)
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Error parsing wishlist product request body",
+		})
+	}
+	// Get Wishlist from the database using the user ID
+	wishlist, err := h.RepositoryService.GetWishlistByUserId(utils.StringToUint64(claims.ID))
+	// Check if the wishlist exists
+	if err != nil {
+		// If the wishlist does not exist, create a new wishlist
+		wishlistID, err := h.RepositoryService.InsertWishlist(&model.Wishlist{
+			UserID: utils.StringToUint64(claims.ID),
+		})
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+				StatusCode: fiber.StatusInternalServerError,
+				Message:    "Failed to create wishlist in the database",
+			})
+		}
+		wishlist.ID = wishlistID
+	}
+
+	wishlistProduct := model.WishlistProduct{
+		WishlistID: wishlist.ID,
+		ProductID:  request.ProductID,
+	}
+	// Insert the product into the wishlist
+	_, err = h.RepositoryService.InsertWishlistProduct(&wishlistProduct)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to add product to wishlist",
+		})
+	}
+	return c.Status(fiber.StatusCreated).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusCreated,
+		Message:    "Product added to wishlist successfully",
+	})
+}
+
+// RemoveProductFromWishlist is a handler function that removes a product from the wishlist
+func (h *ClientHandler) RemoveProductFromWishlist(c fiber.Ctx) error {
+	claims := c.Locals("claims").(*middleware.Claims)
+
+	productID := utils.StringToUint64(c.Params("id"))
+	userID := utils.StringToUint64(claims.ID)
+
+	// get the wishlist from the database
+	wishlist, err := h.RepositoryService.GetWishlistByUserId(userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve wishlist information",
+		})
+	}
+
+	// Remove the product from the wishlist
+	err = h.RepositoryService.DeleteWishlistProduct(productID, wishlist.ID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to remove product from wishlist",
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusOK,
+		Message:    "Product removed from wishlist successfully",
+	})
+}
+
+//#endregion Wishlist
+
+// #region Addresses
 // InsertAddress is a handler function that inserts a new address into the database
 func (h *ClientHandler) InsertCustomerAddress(c fiber.Ctx) error {
 	claims := c.Locals("claims").(*middleware.Claims)
@@ -345,6 +449,32 @@ func (h *ClientHandler) GetCustomerAddresses(c fiber.Ctx) error {
 //#endregion Customers
 
 // #region Carts
+// GetCustomerCart is a handler function that retrieves the customer's cart
+func (h *ClientHandler) GetCustomerCart(c fiber.Ctx) error {
+	claims := c.Locals("claims").(*middleware.Claims)
+	// Retrieve the user's cart from the database
+	cart, err := h.RepositoryService.GetCartByUserId(utils.StringToUint64(claims.ID))
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve cart information",
+		})
+	}
+	// Retrieve the cart products from the database
+	cartProducts, err := h.RepositoryService.GetCartProductsByCartId(cart.ID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve cart products information",
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusOK,
+		Message:    "Cart retrieved successfully",
+		Data:       cartProducts,
+	})
+}
+
 // InsertCart is a handler function that inserts a new cart into the database
 func (h *ClientHandler) InsertCart(c fiber.Ctx) error {
 	claims := c.Locals("claims").(*middleware.Claims)
@@ -395,34 +525,48 @@ func (h *ClientHandler) AddProductToCart(c fiber.Ctx) error {
 	}
 
 	cartProduct := model.CartProduct{
-		CartID:   cart.ID,
+		CartID:    cart.ID,
 		ProductID: request.ProductID,
-		Quantity: request.Quantity,
+		Quantity:  request.Quantity,
 	}
-	// Validate if the cart product exists
-	_, err = h.RepositoryService.GetCartProductByCartProductId(cart.ID, request.ProductID)
-	// if err == nil, product already exists in the cart -> update the quantity
-	if err == nil {
-		// update the quantity in the cart
-		err = h.RepositoryService.UpdateProductCartQuantity(cart.ID, request.ProductID, request.Quantity)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
-				StatusCode: fiber.StatusInternalServerError,
-				Message:    "Failed to update product quantity in cart",
-			})
-		}
-	} else {
-		// Insert the product into the cart
-		_, err = h.RepositoryService.InsertCartProduct(&cartProduct)
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
-				StatusCode: fiber.StatusInternalServerError,
-				Message:    "Failed to add product to cart",
-			})
-		}
+	// Insert the product into the cart
+	_, err = h.RepositoryService.InsertCartProduct(&cartProduct)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to add product to cart",
+		})
 	}
 	return c.Status(fiber.StatusCreated).JSON(model.HTTPResponse{
 		StatusCode: fiber.StatusCreated,
 		Message:    "Product added to cart successfully",
+	})
+}
+
+// RemoveProductFromCart is a handler function that removes a product from the cart
+func (h *ClientHandler) RemoveProductFromCart(c fiber.Ctx) error {
+	claims := c.Locals("claims").(*middleware.Claims)
+	productID := utils.StringToUint64(c.Params("id"))
+	userID := utils.StringToUint64(claims.ID)
+
+	// get the cart from the database
+	cart, err := h.RepositoryService.GetCartByUserId(userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve cart information",
+		})
+	}
+	// Remove the product from the cart
+	err = h.RepositoryService.DeleteCartProduct(productID, cart.ID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to remove product from cart",
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusOK,
+		Message:    "Product removed from cart successfully",
 	})
 }

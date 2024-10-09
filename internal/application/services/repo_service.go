@@ -567,9 +567,10 @@ func (r *RepositoryService) InsertCart(newCart *model.Cart) (uint64, error) {
 }
 
 // GetCartByUserId retrieves a cart from the database by user ID
-func (r *RepositoryService) GetCartByUserId(userID uint64) (*model.Cart, error) {
-	var cart model.Cart
-	dbResponse := r.repo.DB.Where("user_id = ?", userID).First(&cart)
+func (r *RepositoryService) GetCartByUserId(userID uint64) (*dto.CartDTO, error) {
+	var cart dto.CartDTO
+	query := r.repo.DB.Table("carts c").Select("c.id").Where("c.user_id = ?", userID)
+	dbResponse := query.First(&cart)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve cart from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error
@@ -598,8 +599,9 @@ func (r *RepositoryService) UpdateCartProduct(updatedCartProduct *model.CartProd
 }
 
 // DeleteCartProduct deletes a cart product from the database
-func (r *RepositoryService) DeleteCartProduct(cartProductID uint64) error {
-	dbResponse := r.repo.DB.Delete(&model.CartProduct{}, cartProductID)
+func (r *RepositoryService) DeleteCartProduct(cartProductID uint64, cartID uint64) error {
+	// delete the cart product from the database where the ID matches and CartID matches
+	dbResponse := r.repo.DB.Where("id = ? AND cart_id = ?", cartProductID, cartID).Delete(&model.CartProduct{})
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to delete cart product from the database: %v", dbResponse.Error)
 		return dbResponse.Error
@@ -608,14 +610,20 @@ func (r *RepositoryService) DeleteCartProduct(cartProductID uint64) error {
 }
 
 // GetCartProductByCartProductId retrieves a cart product from the database by cart and product ID
-func (r *RepositoryService) GetCartProductByCartProductId(cartID uint64, productID uint64) (*model.CartProduct, error) {
-	var cartProduct model.CartProduct
-	dbResponse := r.repo.DB.Where("cart_id = ? AND product_id = ?", cartID, productID).First(&cartProduct)
+func (r *RepositoryService) GetCartProductsByCartId(cartID uint64) (*[]dto.CartProductDTO, error) {
+	var cartProducts []dto.CartProductDTO
+	query := r.repo.DB.Table("cart_products cp").
+		Select("cp.id, p.name, p.images, p.slug, ps.size, ps.price, ps.discount, cp.quantity").
+		Joins("INNER JOIN product_sizes ps ON cp.product_id = ps.id").
+		Joins("INNER JOIN products p ON ps.product_id = p.id").
+		Where("cp.cart_id = ?", cartID)
+
+	dbResponse := query.Find(&cartProducts)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve cart product from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error
 	}
-	return &cartProduct, nil
+	return &cartProducts, nil
 }
 
 // UpdateProductCartQuantity updates the quantity of a product in the cart
@@ -684,8 +692,9 @@ func (r *RepositoryService) UpdateWishlistProduct(updatedWishlistProduct *model.
 }
 
 // DeleteWishlistProduct deletes a wishlist product from the database
-func (r *RepositoryService) DeleteWishlistProduct(wishlistProductID uint64) error {
-	dbResponse := r.repo.DB.Delete(&model.WishlistProduct{}, wishlistProductID)
+func (r *RepositoryService) DeleteWishlistProduct(wishlistProductID uint64, wishlistID uint64) error {
+	// delete the wishlist product from the database where the ID matches and WishlistID matches
+	dbResponse := r.repo.DB.Where("id = ? AND wishlist_id = ?", wishlistProductID, wishlistID).Delete(&model.WishlistProduct{})
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to delete wishlist product from the database: %v", dbResponse.Error)
 		return dbResponse.Error

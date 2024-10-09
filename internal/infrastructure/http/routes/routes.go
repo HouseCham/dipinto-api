@@ -24,10 +24,17 @@ func SetupRoutes(app *fiber.App, adminHandler *handlers.AdminHandler, clientHand
 	clientRoutes.Use(adminHandler.MiddlewareService.VerifyJWT())
 	// === RENEW TOKEN ===
 	clientRoutes.Post("/users/refresh-token", clientHandler.RefreshToken)
-	clientRoutes.Get("/customers/wishlist", clientHandler.GetCustomerWishlist)
 	// === ADDRESS ENDPOINTS ===
 	clientRoutes.Post("/user/address/insert", clientHandler.InsertCustomerAddress)
 	clientRoutes.Get("/user/address", clientHandler.GetCustomerAddresses)
+	// === WISHLIST ENDPOINTS ===
+	clientRoutes.Get("/wishlist", clientHandler.GetCustomerWishlist)
+	clientRoutes.Post("/wishlist/add-product", clientHandler.AddProductToWishlist)
+	clientRoutes.Delete("/wishlist/remove-product/:id", clientHandler.RemoveProductFromWishlist)
+	// === CART ENDPOINTS ===
+	clientRoutes.Get("/cart", clientHandler.GetCustomerCart)
+	clientRoutes.Post("/cart/add-product", clientHandler.AddProductToCart)
+	clientRoutes.Delete("/cart/remove-product/:id", clientHandler.RemoveProductFromCart)
 	
 	/* ========== ADMIN  ========== */
 	adminRoutes := app.Group("/api/v1")
