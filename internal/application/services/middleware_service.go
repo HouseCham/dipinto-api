@@ -37,6 +37,7 @@ func (m *MiddlewareService) VerifyJWT() fiber.Handler {
 		// Parse and validate the token
 		claims, err := m.middleware.ValidateToken(tokenStr)
 		if err != nil {
+			// Check if the token is expired and the user has the remember flag set to true
 			if (claims != nil && claims.Remember) {
 				// Generate a new token with the same claims
 				newToken := refreshToken(claims, m.jwtKey)

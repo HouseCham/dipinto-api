@@ -13,11 +13,11 @@ type Wishlist struct {
 }
 
 type WishlistProduct struct {
-	ID         uint64    `gorm:"primaryKey;autoIncrement:true"`
-	WishlistID uint64    `gorm:"index;not null"`
-	ProductID  uint64    `gorm:"index;not null"`
-	AddedAt    time.Time `gorm:"autoCreateTime"`
+	ID         uint64    `gorm:"primaryKey;autoIncrement:true" json:"id"`
+	WishlistID uint64    `gorm:"index;not null" json:"wishlist_id"`
+	ProductID  uint64    `gorm:"index;not null" json:"product_id"`
+	AddedAt    time.Time `gorm:"autoCreateTime" json:"added_at"`
 
-	Wishlist Wishlist `gorm:"foreignKey:WishlistID"`
-	Product  Product  `gorm:"foreignKey:ProductID"`
+	Wishlist Wishlist `gorm:"foreignKey:WishlistID" json:"wishlist"`
+	Product  Product  `gorm:"foreignKey:ProductID" json:"product"`
 }

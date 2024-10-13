@@ -19,41 +19,6 @@ type ClientHandler struct {
 	AuthService       *services.AuthService
 }
 
-// RenewToken is a handler function that renews the user's token
-func (h *ClientHandler) RefreshToken(c fiber.Ctx) error {
-	// get claims from context
-	claims := c.Locals("claims").(*middleware.Claims)
-
-	user := &model.User{
-		ID:   utils.StringToUint64(claims.ID), // Ensure this function exists in the utils package
-		Name: claims.Username,
-		Role: claims.Role,
-	}
-	// generate new token
-	token, err := h.AuthService.GenerateToken(user, true)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
-			StatusCode: fiber.StatusInternalServerError,
-			Message:    "Failed to generate token",
-		})
-	}
-
-	// create http only cookie
-	c.Cookie(&fiber.Cookie{
-		Name:     "jwt",
-		Value:    token,
-		HTTPOnly: true,
-		Secure:   CookieSecure,
-		Path:     "/",
-		Expires:  time.Now().Add(24 * time.Hour),
-	})
-
-	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
-		StatusCode: fiber.StatusOK,
-		Message:    "Token renewed successfully",
-	})
-}
-
 // #region Categories
 // GetAllCategories is a handler function that retrieves all categories from the database
 func (h *ClientHandler) GetAllCategories(c fiber.Ctx) error {
@@ -304,12 +269,10 @@ func (h *ClientHandler) GetCustomerWishlist(c fiber.Ctx) error {
 			Message:    "Failed to retrieve wishlist products information",
 		})
 	}
-
-	wishlist.WishlistProducts = *wishlistProducts
 	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
 		StatusCode: fiber.StatusOK,
 		Message:    "Wishlist retrieved successfully",
-		Data:       utils.ParseWishlistToDTO(wishlist),
+		Data:       wishlistProducts,
 	})
 }
 
@@ -326,19 +289,11 @@ func (h *ClientHandler) AddProductToWishlist(c fiber.Ctx) error {
 	}
 	// Get Wishlist from the database using the user ID
 	wishlist, err := h.RepositoryService.GetWishlistByUserId(utils.StringToUint64(claims.ID))
-	// Check if the wishlist exists
 	if err != nil {
-		// If the wishlist does not exist, create a new wishlist
-		wishlistID, err := h.RepositoryService.InsertWishlist(&model.Wishlist{
-			UserID: utils.StringToUint64(claims.ID),
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve wishlist information",
 		})
-		if err != nil {
-			return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
-				StatusCode: fiber.StatusInternalServerError,
-				Message:    "Failed to create wishlist in the database",
-			})
-		}
-		wishlist.ID = wishlistID
 	}
 
 	wishlistProduct := model.WishlistProduct{
@@ -346,7 +301,7 @@ func (h *ClientHandler) AddProductToWishlist(c fiber.Ctx) error {
 		ProductID:  request.ProductID,
 	}
 	// Insert the product into the wishlist
-	_, err = h.RepositoryService.InsertWishlistProduct(&wishlistProduct)
+	wishlistProductID, err := h.RepositoryService.InsertWishlistProduct(&wishlistProduct)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
 			StatusCode: fiber.StatusInternalServerError,
@@ -356,6 +311,7 @@ func (h *ClientHandler) AddProductToWishlist(c fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(model.HTTPResponse{
 		StatusCode: fiber.StatusCreated,
 		Message:    "Product added to wishlist successfully",
+		Data:       wishlistProductID,
 	})
 }
 

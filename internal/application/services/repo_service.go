@@ -650,9 +650,10 @@ func (r *RepositoryService) InsertWishlist(newWishlist *model.Wishlist) (uint64,
 }
 
 // GetWishlistByUserId retrieves a wishlist from the database by user ID
-func (r *RepositoryService) GetWishlistByUserId(userID uint64) (*model.Wishlist, error) {
-	var wishlist model.Wishlist
-	dbResponse := r.repo.DB.Where("user_id = ?", userID).First(&wishlist)
+func (r *RepositoryService) GetWishlistByUserId(userID uint64) (*dto.CartDTO, error) {
+	var wishlist dto.CartDTO
+	query := r.repo.DB.Table("wishlists w").Select("w.id").Where("w.user_id = ?", userID)
+	dbResponse := query.First(&wishlist)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve wishlist from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error
@@ -671,11 +672,17 @@ func (r *RepositoryService) InsertWishlistProduct(newWishlistProduct *model.Wish
 }
 
 // GetWishlistProductsByWishlistId retrieves all wishlist products from the database by wishlist ID
-func (r *RepositoryService) GetWishlistProductsById(wishlistID uint64, userID uint64) (*[]model.WishlistProduct, error) {
-	var wishlistProducts []model.WishlistProduct
-	dbResponse := r.repo.DB.Where("wishlist_id = ?", wishlistID).Where("user_id = ?", userID).Find(&wishlistProducts)
+func (r *RepositoryService) GetWishlistProductsById(wishlistID uint64, userID uint64) (*[]dto.WishlistProductDTO, error) {
+	var wishlistProducts []dto.WishlistProductDTO
+	query := r.repo.DB.Table("wishlist_products wp").
+		Select("wp.id, p.name, p.images, p.slug, p.description, c.name as category").
+		Joins("INNER JOIN products p ON wp.product_id = p.id").
+		Joins("INNER JOIN categories c ON p.category_id = c.id").
+		Where("wp.wishlist_id = ?", wishlistID)
+
+	dbResponse := query.Find(&wishlistProducts)
 	if dbResponse.Error != nil {
-		log.Warnf("Failed to retrieve wishlist products from the database: %v", dbResponse.Error)
+		log.Warnf("Failed to retrieve cart product from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error
 	}
 	return &wishlistProducts, nil

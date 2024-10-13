@@ -22,8 +22,6 @@ func SetupRoutes(app *fiber.App, adminHandler *handlers.AdminHandler, clientHand
 	
 	/* ========== CUSTOMER JWT ENDPOINTS  ========== */
 	clientRoutes.Use(adminHandler.MiddlewareService.VerifyJWT())
-	// === RENEW TOKEN ===
-	clientRoutes.Post("/users/refresh-token", clientHandler.RefreshToken)
 	// === ADDRESS ENDPOINTS ===
 	clientRoutes.Post("/user/address/insert", clientHandler.InsertCustomerAddress)
 	clientRoutes.Get("/user/address", clientHandler.GetCustomerAddresses)
