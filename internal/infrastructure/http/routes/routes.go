@@ -6,56 +6,52 @@ import (
 )
 
 // SetupRoutes sets up the routes for the application
-func SetupRoutes(app *fiber.App, userHandler *handlers.UserHandler, productHandler *handlers.ProductHandler, categoryHandler *handlers.CategoryHandler, orderHandler *handlers.OrderHandler) {
+func SetupRoutes(app *fiber.App, adminHandler *handlers.AdminHandler, clientHandler *handlers.ClientHandler) {
 	/* ========== GLOBAL  ========== */
+	app.Post("/api/v1/users/logout", adminHandler.LogoutUser)
+	
+	/* ========== CLIENT  ========== */
+	clientRoutes := app.Group("/api/v1")
+	// === CUSTOMER ENDPOINTS ===
+	clientRoutes.Post("/customers/login", clientHandler.LoginCustomer)
+	clientRoutes.Post("/customers/sign-up", clientHandler.InsertCustomer)
+	// === PRODUCTS ENDPOINTS ===
+	clientRoutes.Get("/products", clientHandler.GetAllProductsCatalog)
+	clientRoutes.Get("/categories", clientHandler.GetAllCategories)
+	clientRoutes.Get("/products/:slug", clientHandler.GetProductBySlug)
+	
+	/* ========== CUSTOMER JWT ENDPOINTS  ========== */
+	clientRoutes.Use(adminHandler.MiddlewareService.VerifyJWT())
+	// === ADDRESS ENDPOINTS ===
+	clientRoutes.Post("/user/address/insert", clientHandler.InsertCustomerAddress)
+	clientRoutes.Get("/user/address", clientHandler.GetCustomerAddresses)
+	// === WISHLIST ENDPOINTS ===
+	clientRoutes.Get("/wishlist", clientHandler.GetCustomerWishlist)
+	clientRoutes.Post("/wishlist/add-product", clientHandler.AddProductToWishlist)
+	clientRoutes.Delete("/wishlist/remove-product/:id", clientHandler.RemoveProductFromWishlist)
+	// === CART ENDPOINTS ===
+	clientRoutes.Get("/cart", clientHandler.GetCustomerCart)
+	clientRoutes.Post("/cart/add-product", clientHandler.AddProductToCart)
+	clientRoutes.Delete("/cart/remove-product/:id", clientHandler.RemoveProductFromCart)
+	
+	/* ========== ADMIN  ========== */
+	adminRoutes := app.Group("/api/v1")
+	adminRoutes.Post("/users/login", adminHandler.LoginAdmin)
 	// === MIDDLEWARE ===
-	// app.Use(userHandler.MiddlewareService.VerifyOrigin())
-	// === HANDLERS ===
-	app.Post("/api/v1/users", userHandler.InsertUser)
-	app.Get("/api/v1/products", productHandler.GetAllProductsCatalogue)
-	app.Post("/api/v1/users/login", userHandler.LoginUser)
-	app.Post("/api/v1/users/sign-up", userHandler.InsertUser)
+	adminRoutes.Use(adminHandler.MiddlewareService.VerifyJWT())
 
-	/* ========== User routes  ========== */
-	userRoutes := app.Group("/api/v1/users")
-	// === MIDDLEWARE ===
-	userRoutes.Use(userHandler.MiddlewareService.VerifyJWT())
-	// === HANDLERS ===
-	userRoutes.Get("/", userHandler.GetUserById)
-	userRoutes.Use(userHandler.MiddlewareService.VerifyAdmin())
-	userRoutes.Get("/get-customers", userHandler.GetAllCustomers)
-
-	/* ========== CUSTOMER Product routes  ========== */
-	// === GROUP ===
-	productRoutes := app.Group("/api/v1/products")
-	// === HANDLERS ===
-	productRoutes.Get("/", productHandler.GetAllProductsCatalogue)
-	productRoutes.Get("/:slug", productHandler.GetProductBySlug)
-
-	/* ========== ADMIN Product routes  ========== */
-	// === MIDDLEWARE ===
-	productRoutes.Use(productHandler.MiddlewareService.VerifyJWT()).Use(productHandler.MiddlewareService.VerifyAdmin())
-	// === HANDLERS ===
-	productRoutes.Get("/get-products/admin", productHandler.GetAllProductsAdmin)
-	productRoutes.Post("/insert", productHandler.InsertProduct)
-	productRoutes.Put("/update", productHandler.UpdateProduct)
-
-	/* ========== Category routes ========== */
-	categoryRoutes := app.Group("/api/v1/categories")
-	// === HANDLERS ===
-	categoryRoutes.Get("/", categoryHandler.GetAllCategories)
-	// === ADMIN MIDDLEWARE ===
-	categoryRoutes.Use(productHandler.MiddlewareService.VerifyJWT()).Use(productHandler.MiddlewareService.VerifyAdmin())
-	categoryRoutes.Post("/insert", categoryHandler.InsertCategory)
-	categoryRoutes.Put("/update", categoryHandler.UpdateCategory)
-
-	/* ========== Order routes ========== */
-	orderRoutes := app.Group("/api/v1/orders")
-	// === MIDDLEWARE ===
-	orderRoutes.Use(orderHandler.MiddlewareService.VerifyJWT())
-	orderRoutes.Use(orderHandler.MiddlewareService.VerifyAdmin())
-	// === HANDLERS ===
-	orderRoutes.Get("/get-admin-list", orderHandler.GetAdminOrderList)
-	orderRoutes.Get("/details/:id", orderHandler.GetAdminOrderDetailsById)
-	orderRoutes.Post("/get-preference", orderHandler.GenerateMercadoPagoPreference)
+	adminRoutes.Use(adminHandler.MiddlewareService.VerifyAdmin())
+	adminRoutes.Get("/admin/dashboard", adminHandler.GetAdminDashboard)
+	// === PRODUCTS ENDPOINTS ===
+	adminRoutes.Get("/products/get-products/admin", adminHandler.GetAllProductsAdmin)
+	adminRoutes.Post("/products/insert", adminHandler.InsertProduct)
+	adminRoutes.Put("/products/update", adminHandler.UpdateProduct)
+	// === CATEGORIES ENDPOINTS ===
+	adminRoutes.Post("/categories/insert", adminHandler.InsertCategory)
+	adminRoutes.Put("/categories/update", adminHandler.UpdateCategory)
+	// === ORDERS ENDPOINTS ===
+	adminRoutes.Get("/orders/get-admin-list", adminHandler.GetAdminOrderList)
+	adminRoutes.Get("/orders/details/:id", adminHandler.GetAdminOrderDetailsById)
+	// === CUSTOMERS ENDPOINTS ===
+	adminRoutes.Get("/get-customers", adminHandler.GetAllCustomers)
 }

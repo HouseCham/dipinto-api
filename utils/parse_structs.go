@@ -70,6 +70,27 @@ func ParseProductModelToDTO(product *model.Product, sizes *[]model.ProductSize) 
 	}
 }
 
+// ParseWishlistToDTO parses a Wishlist model to a WishlistDTO
+func ParseWishlistToDTO(wishlist *model.Wishlist) *dto.WishListDTO {
+	// Create a slice of CatalogProduct
+	var catalogProducts []model.CatalogProduct
+	for _, product := range wishlist.WishlistProducts {
+		catalogProducts = append(catalogProducts, model.CatalogProduct{
+			ID:          product.ID,
+			Name:        product.Product.Name,
+			Slug:        product.Product.Slug,
+			Category:   product.Product.Category,
+			Images: 	product.Product.Images,
+		})
+	}
+	// Return the WishlistDTO
+	return &dto.WishListDTO{
+		ID:               wishlist.ID,
+		UserID:           wishlist.UserID,
+		WishlistProducts: catalogProducts,
+	}
+}
+
 // returnBadRequestResponse isolates the response logic for a bad request
 func ReturnBadRequestResponse(errors *[]validator.ValidatorError) *model.HTTPResponse {
 	return &model.HTTPResponse{

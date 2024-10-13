@@ -19,6 +19,7 @@ type Claims struct {
 	ID       string `json:"id"`
 	Username string `json:"username"`
 	Role     string `json:"role"`
+	Remember bool   `json:"remember"`
 	jwt.StandardClaims
 }
 
@@ -34,21 +35,9 @@ func SetupMiddlewareService(config *config.Config) *MiddlewareService {
 // ValidateToken validates the JWT token and checks the claim ID is greater than 0
 func (m *MiddlewareService) ValidateToken(tokenStr string) (*Claims, error) {
 	// Parse the token
-	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+	token, _ := jwt.ParseWithClaims(tokenStr, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		return m.jwtKey, nil
 	})
-
-	if err != nil {
-		if err == jwt.ErrSignatureInvalid {
-			return nil, errors.New("invalid token signature")
-		}
-		return nil, errors.New("invalid token")
-	}
-
-	// Check if the token is valid
-	if !token.Valid {
-		return nil, errors.New("invalid token")
-	}
 
 	// Extract the claims from the token
 	claims, ok := token.Claims.(*Claims)
@@ -58,12 +47,17 @@ func (m *MiddlewareService) ValidateToken(tokenStr string) (*Claims, error) {
 
 	// Check if the token has expired
 	if claims.ExpiresAt < time.Now().Unix() {
-		return nil, errors.New("token has expired")
+		return claims, errors.New("token has expired")
 	}
 
 	// Check if the claim ID is greater than 0
 	if claims.ID == "" || claims.ID == "0" {
-		return nil, errors.New("invalid claim ID")
+		return nil, errors.New("invalid keys")
+	}
+
+	// Check if the token is valid
+	if !token.Valid {
+		return nil, errors.New("invalid token")
 	}
 
 	return claims, nil

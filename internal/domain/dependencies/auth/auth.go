@@ -24,15 +24,16 @@ func SetUpAuthService(config *config.Config) *AuthService {
 }
 
 // CreateToken creates a JWT token with the given username
-func (auth *AuthService) CreateToken(user *model.User) (string, error) {
+func (auth *AuthService) CreateToken(user *model.User, remember bool) (string, error) {
 	// Set the expiration time of the token
-	expirationTime := time.Now().Add(24 * time.Hour) // Token expires in 24 hours
+	expirationTime := time.Now().Add(8 * time.Hour) // Token expires in 8 hours
 
 	// Create the claims
 	claims := &middleware.Claims{
 		ID:       fmt.Sprint(user.ID),
 		Username: user.Name,
 		Role:     user.Role,
+		Remember: remember,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expirationTime.Unix(),
 			IssuedAt:  time.Now().Unix(),

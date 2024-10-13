@@ -29,6 +29,6 @@ func (a *AuthService) ValidatePassword(password, hashedPassword string) error {
 }
 
 // GenerateToken generates a JWT token for the given username and user ID
-func (a *AuthService) GenerateToken(user *model.User) (string, error) {
-	return a.auth.CreateToken(user)
+func (a *AuthService) GenerateToken(user *model.User, remember bool) (string, error) {
+	return a.auth.CreateToken(user, remember)
 }

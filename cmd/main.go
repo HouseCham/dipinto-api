@@ -3,11 +3,11 @@ package main
 import (
 	"fmt"
 
+	"github.com/HouseCham/dipinto-api/internal/application/services"
 	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/auth"
 	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/db"
 	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/middleware"
 	v "github.com/HouseCham/dipinto-api/internal/domain/dependencies/validator"
-	"github.com/HouseCham/dipinto-api/internal/application/services"
 	"github.com/HouseCham/dipinto-api/internal/infrastructure/config"
 	"github.com/HouseCham/dipinto-api/internal/infrastructure/http/handlers"
 	"github.com/HouseCham/dipinto-api/internal/infrastructure/http/routes"
@@ -22,9 +22,9 @@ func main() {
 	log.Info("Starting Dipinto API")
 	// Set up the configuration
 	cfg, err := config.LoadConfig()
-    if err != nil {
-        log.Fatalf("Failed to load configuration: %v", err)
-    }
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
 	log.Info("Configuration is set up")
 
 	// Set up database connection
@@ -34,22 +34,24 @@ func main() {
 	}
 	defer database.Close()
 	log.Info("Database connection is set up")
-	
+
 	// Set up the Fiber app
 	app := fiber.New()
 
 	// Setting up CORS middleware
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: []string{"http://localhost:3000", "https://dipinto.netlify.app"},
-		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
+		AllowOrigins:     []string{cfg.Client.Origin},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+		AllowCredentials: true,
 	}))
 	log.Info("Fiber app is set up")
 
-	userHandler, productHandler, categoryHandler, orderHandler := injectDependencies(cfg, database, v.SetUpValidator())
+	adminHandler, clientHandler := injectDependencies(cfg, database, v.SetUpValidator())
 	log.Info("Handlers are set up")
-	
+
 	// Set up the routes and handlers for the app
-	routes.SetupRoutes(app, userHandler, productHandler, categoryHandler, orderHandler)
+	routes.SetupRoutes(app, adminHandler, clientHandler)
 	log.Info("Routes are set up")
 
 	log.Infof("Server is running on port %d", cfg.Server.Port)
@@ -57,7 +59,7 @@ func main() {
 }
 
 // injectDependencies injects the dependencies into the handlers
-func injectDependencies(cfg *config.Config, database *db.Database, v *validator.Validate) (*handlers.UserHandler, *handlers.ProductHandler, *handlers.CategoryHandler, *handlers.OrderHandler) {
+func injectDependencies(cfg *config.Config, database *db.Database, v *validator.Validate) (*handlers.AdminHandler, *handlers.ClientHandler) {
 	paymentCfg, err := mercadopago.New(cfg.Payment.MercadoPago.AccessToken)
 	if err != nil {
 		log.Fatalf("Failed to set up MercadoPago configuration: %v", err)
@@ -69,23 +71,16 @@ func injectDependencies(cfg *config.Config, database *db.Database, v *validator.
 	modelService := services.NewModelService(v)
 	paymentService := services.NewPaymentService(paymentCfg)
 	// Set up the http handlers
-	return &handlers.UserHandler{
-		AuthService: authService,
-		MiddlewareService: middlewareService,
-		RepositoryService: repositoryService,
-		ModelService: modelService,
-	}, &handlers.ProductHandler{
-		MiddlewareService: middlewareService,
-		RepositoryService: repositoryService,
-		ModelService: modelService,
-	}, &handlers.CategoryHandler{
-		MiddlewareService: middlewareService,
-		RepositoryService: repositoryService,
-		ModelService: modelService,
-	}, &handlers.OrderHandler{
-		MiddlewareService: middlewareService,
-		RepositoryService: repositoryService,
-		ModelService: modelService,
-		PaymentService: paymentService,
-	}
+	return &handlers.AdminHandler{
+			MiddlewareService: middlewareService,
+			RepositoryService: repositoryService,
+			ModelService:      modelService,
+			AuthService:       authService,
+		}, &handlers.ClientHandler{
+			MiddlewareService: middlewareService,
+			RepositoryService: repositoryService,
+			ModelService:      modelService,
+			AuthService:       authService,
+			PaymentService:    paymentService,
+		}
 }

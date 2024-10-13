@@ -50,9 +50,9 @@ func (r *RepositoryService) GetAllUsers() ([]model.User, error) {
 func (r *RepositoryService) GetAllCustomers(offset int, limit int, searchValue string) ([]model.User, error) {
 	var customers []model.User
 	query := r.repo.DB.Table("users u").
-	Select("u.id, u.name, u.email, u.phone, u.created_at").
-	Where("deleted_at IS NULL").
-	Where("role='customer'")
+		Select("u.id, u.name, u.email, u.phone, u.created_at").
+		Where("deleted_at IS NULL").
+		Where("role='customer'")
 
 	// Add search filter if searchValue is provided
 	if searchValue != "" {
@@ -87,9 +87,20 @@ func (r *RepositoryService) GetUserById(userID uint64) (*model.User, error) {
 }
 
 // GetUserByEmail retrieves a user from the database by email
-func (r *RepositoryService) GetUserByEmail(email string) (*model.User, error) {
+func (r *RepositoryService) GetUserByEmail(email string, isAdmin bool) (*model.User, error) {
 	var user model.User
-	dbResponse := r.repo.DB.Where("deleted_at IS NULL").Where("email = ?", email).Omit("CreatedAt", "UpdatedAt", "DeletedAt").First(&user)
+	query := r.repo.DB.Table("users u").
+		Select("u.id, u.name, u.email, u.phone, u.role, u.password").
+		Where("u.deleted_at IS NULL").
+		Where("u.email = ?", email)
+
+	if isAdmin {
+		query = query.Where("u.role = 'admin'")
+	} else {
+		query = query.Where("u.role = 'customer'")
+	}
+
+	dbResponse := query.Scan(&user)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve user from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error
@@ -206,26 +217,43 @@ func (r *RepositoryService) UpdateProduct(updatedProduct *model.Product, sizes *
 }
 
 // GetAllProducts retrieves all products from the database
-func (r *RepositoryService) GetAllProductsCatalogue() (*[]model.CatalogueProduct, error) {
-	var products []model.CatalogueProduct
-	query := `
-		SELECT p.id, p.slug, p.name, p.images, s.price, s.discount
-		FROM
-			products p
-			INNER JOIN product_sizes s ON p.id = s.product_id
-			INNER JOIN (
-				SELECT product_id, MIN(price) AS min_price
-				FROM product_sizes
-				WHERE
-					is_available = true
-				GROUP BY
-					product_id
-			) min_sizes ON s.product_id = min_sizes.product_id
-			AND s.price = min_sizes.min_price
-		WHERE
-			s.is_available = true;
-	`
-	dbResponse := r.repo.DB.Raw(query).Scan(&products)
+func (r *RepositoryService) GetAllProductsCatalog(params model.ClientSearchParams) (*[]model.CatalogProduct, error) {
+	query := r.repo.DB.Table("products p").
+		Select("p.id, p.slug, p.name, c.name as category, p.images, s.price, s.discount").
+		Joins("INNER JOIN categories c ON p.category_id = c.id").
+		Joins("INNER JOIN product_sizes s ON p.id = s.product_id").
+		Joins("INNER JOIN (SELECT product_id, MIN(price) AS min_price FROM product_sizes WHERE is_available = true GROUP BY product_id) min_sizes ON s.product_id = min_sizes.product_id AND s.price = min_sizes.min_price").
+		Where("s.is_available = true")
+
+	// Add category filter if categoryId is provided
+	if params.CategoryID != 0 {
+		query = query.Where("p.category_id = ?", params.CategoryID)
+	}
+
+	// Add search filter if searchValue is provided
+	if params.SearchValue != "" {
+		searchPattern := "%" + params.SearchValue + "%"
+		query = query.Where("p.name ILIKE ? OR p.description ILIKE ?", searchPattern, searchPattern)
+	}
+
+	// Add price filter if MinPrice and MaxPrice are provided
+	if params.MinPrice > 0 {
+		query = query.Where("s.price >= ?", params.MinPrice)
+	}
+	if params.MaxPrice > 0 {
+		query = query.Where("s.price <= ?", params.MaxPrice)
+	}
+
+	// Adding offset and limit for pagination
+	if params.Offset >= 0 {
+		query = query.Offset(params.Offset)
+	}
+	if params.Limit > 0 {
+		query = query.Limit(params.Limit)
+	}
+
+	var products []model.CatalogProduct
+	dbResponse := query.Scan(&products)
 	if dbResponse.Error != nil {
 		log.Warnf("Failed to retrieve products from the database: %v", dbResponse.Error)
 		return nil, dbResponse.Error
@@ -315,7 +343,7 @@ func (r *RepositoryService) GetProductBySlug(slug string) (*model.Product, *[]mo
 func (r *RepositoryService) GetAllCategories(offset int, limit int, searchValue string) (*[]model.Category, error) {
 	var categories []model.Category
 	query := r.repo.DB.Table("categories c").
-	Select("c.id, c.name, c.description")
+		Select("c.id, c.name, c.description")
 
 	// Add search filter if searchValue is provided
 	if searchValue != "" {
@@ -397,8 +425,8 @@ func (r *RepositoryService) GetTopFiveCategoriesSold() (*[]dto.TopCategoryDTO, e
 func (r *RepositoryService) GetAdminOrderList(offset int, limit int, searchValue string, orderStatus string, paymentType string) (*[]model.OrderListItem, error) {
 	var orders []model.OrderListItem
 	query := r.repo.DB.Table("orders o").
-	Select("o.id, o.order_date, u.name, o.payment_method, o.total_amount, o.status, o.delivery_date, o.tracking_id, o.shipping_company").
-	Joins("INNER JOIN users u ON o.user_id = u.id")
+		Select("o.id, o.order_date, u.name, o.payment_method, o.total_amount, o.status, o.delivery_date, o.tracking_id, o.shipping_company").
+		Joins("INNER JOIN users u ON o.user_id = u.id")
 
 	// Add search filter if searchValue is provided
 	if searchValue != "" {
@@ -464,4 +492,241 @@ func (r *RepositoryService) GetOrderDetails(orderID uint64) (*dto.OrderDetailsDT
 
 	order.Items = items
 	return &order, nil
+}
+
+// PatchOrderStatus updates the status of an order in the database
+func (r *RepositoryService) PatchOrderStatus(orderID uint64, status string) error {
+	dbResponse := r.repo.DB.Model(&model.Order{}).Where("id = ?", orderID).Update("status", status)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to update order status in the database: %v", dbResponse.Error)
+		return dbResponse.Error
+	}
+	return nil
+}
+
+// #region ADMIN DASHBOARD
+
+// GetAdminCardsData retrieves the data for the admin dashboard cards (total pending orders, total sales, total expenses, total customers)
+func (r *RepositoryService) GetAdminCardsData() (*dto.AdminCardsDTO, error) {
+	var cards dto.AdminCardsDTO
+	// Fetch total pending orders
+	dbResponse := r.repo.DB.Raw(`SELECT * FROM total_pending_orders`).Scan(&cards.TotalPendingOrders)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve total pending orders from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	// Fetch total sales
+	dbResponse = r.repo.DB.Raw(`SELECT * FROM total_sales`).Scan(&cards.TotalSales)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve total sales from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	// Fetch total expenses
+	dbResponse = r.repo.DB.Raw(`SELECT * FROM total_expenses`).Scan(&cards.TotalExpenses)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve total expenses from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	// Fetch total customers
+	dbResponse = r.repo.DB.Raw(`SELECT * FROM total_customers`).Scan(&cards.TotalCustomers)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve total customers from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &cards, nil
+}
+
+// GetMonthlySalesData retrieves the monthly sales data for the admin dashboard
+func (r *RepositoryService) GetMonthlySalesData() (*[]dto.MonthlySalesDTO, error) {
+	var sales []dto.MonthlySalesDTO
+	// query for retrieving monthly sales data
+	query := r.repo.DB.Table("orders o").
+		Select("DATE_TRUNC('month', o.order_date) as month, SUM(o.total_amount) as total_sales").
+		Where("o.status = 'delivered'").
+		Group("month").
+		Order("month DESC").
+		Limit(12)
+
+	dbResponse := query.Scan(&sales)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve monthly sales data from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &sales, nil
+}
+
+// #region CARTS
+// InsertCart inserts a new cart into the database
+func (r *RepositoryService) InsertCart(newCart *model.Cart) (uint64, error) {
+	dbResponse := r.repo.DB.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&newCart)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to insert cart into the database: %v", dbResponse.Error)
+		return 0, dbResponse.Error
+	}
+	return newCart.ID, nil
+}
+
+// GetCartByUserId retrieves a cart from the database by user ID
+func (r *RepositoryService) GetCartByUserId(userID uint64) (*dto.CartDTO, error) {
+	var cart dto.CartDTO
+	query := r.repo.DB.Table("carts c").Select("c.id").Where("c.user_id = ?", userID)
+	dbResponse := query.First(&cart)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve cart from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &cart, nil
+}
+
+// InsertCartProduct inserts a new cart product into the database
+func (r *RepositoryService) InsertCartProduct(newCartProduct *model.CartProduct) (uint64, error) {
+	dbResponse := r.repo.DB.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&newCartProduct)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to insert cart product into the database: %v", dbResponse.Error)
+		return 0, dbResponse.Error
+	}
+	return newCartProduct.ID, nil
+}
+
+// UpdateCartProduct updates a cart product in the database
+func (r *RepositoryService) UpdateCartProduct(updatedCartProduct *model.CartProduct) error {
+	dbResponse := r.repo.DB.Save(updatedCartProduct)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to update cart product in the database: %v", dbResponse.Error)
+		return dbResponse.Error
+	}
+	return nil
+}
+
+// DeleteCartProduct deletes a cart product from the database
+func (r *RepositoryService) DeleteCartProduct(cartProductID uint64, cartID uint64) error {
+	// delete the cart product from the database where the ID matches and CartID matches
+	dbResponse := r.repo.DB.Where("id = ? AND cart_id = ?", cartProductID, cartID).Delete(&model.CartProduct{})
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to delete cart product from the database: %v", dbResponse.Error)
+		return dbResponse.Error
+	}
+	return nil
+}
+
+// GetCartProductByCartProductId retrieves a cart product from the database by cart and product ID
+func (r *RepositoryService) GetCartProductsByCartId(cartID uint64) (*[]dto.CartProductDTO, error) {
+	var cartProducts []dto.CartProductDTO
+	query := r.repo.DB.Table("cart_products cp").
+		Select("cp.id, p.name, p.images, p.slug, ps.size, ps.price, ps.discount, cp.quantity").
+		Joins("INNER JOIN product_sizes ps ON cp.product_id = ps.id").
+		Joins("INNER JOIN products p ON ps.product_id = p.id").
+		Where("cp.cart_id = ?", cartID)
+
+	dbResponse := query.Find(&cartProducts)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve cart product from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &cartProducts, nil
+}
+
+// UpdateProductCartQuantity updates the quantity of a product in the cart
+func (r *RepositoryService) UpdateProductCartQuantity(cartID uint64, productID uint64, quantity int) error {
+	dbResponse := r.repo.DB.Model(&model.CartProduct{}).
+		Where("cart_id = ? AND product_id = ?", cartID, productID).
+		Update("quantity", quantity)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to update product cart quantity in the database: %v", dbResponse.Error)
+		return dbResponse.Error
+	}
+	return nil
+}
+
+// #region WISHLIST
+// InsertWishlist inserts a new wishlist into the database
+func (r *RepositoryService) InsertWishlist(newWishlist *model.Wishlist) (uint64, error) {
+	dbResponse := r.repo.DB.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&newWishlist)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to insert wishlist into the database: %v", dbResponse.Error)
+		return 0, dbResponse.Error
+	}
+	return newWishlist.ID, nil
+}
+
+// GetWishlistByUserId retrieves a wishlist from the database by user ID
+func (r *RepositoryService) GetWishlistByUserId(userID uint64) (*dto.CartDTO, error) {
+	var wishlist dto.CartDTO
+	query := r.repo.DB.Table("wishlists w").Select("w.id").Where("w.user_id = ?", userID)
+	dbResponse := query.First(&wishlist)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve wishlist from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &wishlist, nil
+}
+
+// InsertWishlistProduct inserts a new wishlist product into the database
+func (r *RepositoryService) InsertWishlistProduct(newWishlistProduct *model.WishlistProduct) (uint64, error) {
+	dbResponse := r.repo.DB.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&newWishlistProduct)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to insert wishlist product into the database: %v", dbResponse.Error)
+		return 0, dbResponse.Error
+	}
+	return newWishlistProduct.ID, nil
+}
+
+// GetWishlistProductsByWishlistId retrieves all wishlist products from the database by wishlist ID
+func (r *RepositoryService) GetWishlistProductsById(wishlistID uint64, userID uint64) (*[]dto.WishlistProductDTO, error) {
+	var wishlistProducts []dto.WishlistProductDTO
+	query := r.repo.DB.Table("wishlist_products wp").
+		Select("wp.id, p.name, p.images, p.slug, p.description, c.name as category").
+		Joins("INNER JOIN products p ON wp.product_id = p.id").
+		Joins("INNER JOIN categories c ON p.category_id = c.id").
+		Where("wp.wishlist_id = ?", wishlistID)
+
+	dbResponse := query.Find(&wishlistProducts)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve cart product from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &wishlistProducts, nil
+}
+
+// UpdateWishlistProduct updates a wishlist product in the database
+func (r *RepositoryService) UpdateWishlistProduct(updatedWishlistProduct *model.WishlistProduct) error {
+	dbResponse := r.repo.DB.Save(updatedWishlistProduct)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to update wishlist product in the database: %v", dbResponse.Error)
+		return dbResponse.Error
+	}
+	return nil
+}
+
+// DeleteWishlistProduct deletes a wishlist product from the database
+func (r *RepositoryService) DeleteWishlistProduct(wishlistProductID uint64, wishlistID uint64) error {
+	// delete the wishlist product from the database where the ID matches and WishlistID matches
+	dbResponse := r.repo.DB.Where("id = ? AND wishlist_id = ?", wishlistProductID, wishlistID).Delete(&model.WishlistProduct{})
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to delete wishlist product from the database: %v", dbResponse.Error)
+		return dbResponse.Error
+	}
+	return nil
+}
+
+// #region ADDRESS
+// InsertAddress inserts a new address into the database
+func (r *RepositoryService) InsertAddress(newAddress *model.Address) (uint64, error) {
+	dbResponse := r.repo.DB.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&newAddress)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to insert address into the database: %v", dbResponse.Error)
+		return 0, dbResponse.Error
+	}
+	return newAddress.ID, nil
+}
+
+// GetAddressesListByUserId retrieves a list of addresses from the database by user ID
+func (r *RepositoryService) GetAddressesListByUserId(userID uint64) (*[]model.Address, error) {
+	var addresses []model.Address
+	dbResponse := r.repo.DB.Where("user_id = ?", userID).Where("deleted_at IS NULL").Omit("CreatedAt", "UpdatedAt", "DeletedAt", "Addressee", "Phone", "AddresseeEmail").Find(&addresses)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve addresses from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &addresses, nil
 }
