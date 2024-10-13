@@ -17,6 +17,7 @@ type ClientHandler struct {
 	RepositoryService *services.RepositoryService
 	ModelService      *services.ModelService
 	AuthService       *services.AuthService
+	PaymentService    *services.PaymentService
 }
 
 // #region Categories
@@ -524,5 +525,25 @@ func (h *ClientHandler) RemoveProductFromCart(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
 		StatusCode: fiber.StatusOK,
 		Message:    "Product removed from cart successfully",
+	})
+}
+
+//#endregion Carts
+
+// #region Orders
+
+// GenerateMercadoPagoPreference is a handler function that generates a new preference in MercadoPago API
+func (h *ClientHandler) GenerateMercadoPagoPreference(c fiber.Ctx) error {
+	pref, err := h.PaymentService.CreatePreference()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to create preference in MercadoPago API",
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusOK,
+		Message:    "Preference created successfully",
+		Data:       pref,
 	})
 }
