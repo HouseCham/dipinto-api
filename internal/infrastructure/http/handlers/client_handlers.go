@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/HouseCham/dipinto-api/internal/application/dto"
 	"github.com/HouseCham/dipinto-api/internal/application/services"
 	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/middleware"
 	"github.com/HouseCham/dipinto-api/internal/domain/model"
@@ -534,7 +535,15 @@ func (h *ClientHandler) RemoveProductFromCart(c fiber.Ctx) error {
 
 // GenerateMercadoPagoPreference is a handler function that generates a new preference in MercadoPago API
 func (h *ClientHandler) GenerateMercadoPagoPreference(c fiber.Ctx) error {
-	pref, err := h.PaymentService.CreatePreference()
+	var request dto.OrderDetailsDTO
+	if err := c.Bind().JSON(&request); err != nil {
+		log.Warnf("Failed to parse cart product request body: %v", err)
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Error parsing cart product request body",
+		})
+	}
+	pref, err := h.PaymentService.CreatePreference(&request)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
 			StatusCode: fiber.StatusInternalServerError,
@@ -545,5 +554,76 @@ func (h *ClientHandler) GenerateMercadoPagoPreference(c fiber.Ctx) error {
 		StatusCode: fiber.StatusOK,
 		Message:    "Preference created successfully",
 		Data:       pref,
+	})
+}
+// PrepareOrderAddressInformation is a handler function that prepares the order address information
+func (h *ClientHandler) PrepareOrderAddressInformation(c fiber.Ctx) error {
+	claims := c.Locals("claims").(*middleware.Claims)
+	userID := utils.StringToUint64(claims.ID)
+
+	var request dto.OrderAddressDTO
+	if err := c.Bind().JSON(&request); err != nil {
+		log.Warnf("Failed to parse address request body: %v", err)
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Error parsing address request body",
+		})
+	}
+	// Check if the address ID is 0 to insert a new address
+	if request.AddressID == 0 {
+		// Validate the request body
+		if errors := h.ModelService.ValidateRequestBody(request.NewAddress); errors != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+				StatusCode: fiber.StatusBadRequest,
+				Message:    "Invalid request body",
+				Data:       errors,
+			})
+		}
+		// Insert the address into the database
+		addressID, err := h.RepositoryService.InsertAddress(&request.NewAddress)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+				StatusCode: fiber.StatusInternalServerError,
+				Message:    "Failed to create address in the database",
+			})
+		}
+		return c.Status(fiber.StatusCreated).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusCreated,
+			Message:    "Address created successfully",
+			Data:       addressID,
+		})
+	}
+
+	// Retrieve the address from the database
+	address, err := h.RepositoryService.GetAddressById(request.AddressID, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve address information",
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusOK,
+		Message:    "Address retrieved successfully",
+		Data:       address,
+	})
+}
+
+// GetOrderCustomerInformation is a handler function that retrieves the customer's information for the order
+func (h *ClientHandler) GetOrderCustomerInformation(c fiber.Ctx) error {
+	claims := c.Locals("claims").(*middleware.Claims)
+	userID := utils.StringToUint64(claims.ID)
+	// Retrieve the user from the database
+	user, err := h.RepositoryService.GetUserById(userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve user information",
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusOK,
+		Message:    "User retrieved successfully",
+		Data:       user,
 	})
 }

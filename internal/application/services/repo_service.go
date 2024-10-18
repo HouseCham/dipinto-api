@@ -730,3 +730,14 @@ func (r *RepositoryService) GetAddressesListByUserId(userID uint64) (*[]model.Ad
 	}
 	return &addresses, nil
 }
+
+// GetAddressById retrieves an address from the database by its ID
+func (r *RepositoryService) GetAddressById(addressID uint64, userID uint64) (*model.Address, error) {
+	var address model.Address
+	dbResponse := r.repo.DB.Where("id = ?", addressID).Where("user_id = ?", userID).Where("deleted_at IS NULL").Omit("CreatedAt", "UpdatedAt", "DeletedAt").First(&address)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve address from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &address, nil
+}

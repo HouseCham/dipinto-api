@@ -1,16 +1,21 @@
 package services
 
+import "fmt"
+
 import (
 	"context"
 
+	"github.com/HouseCham/dipinto-api/internal/application/dto"
 	"github.com/gofiber/fiber/v3/log"
 	"github.com/mercadopago/sdk-go/pkg/config"
 	"github.com/mercadopago/sdk-go/pkg/preference"
 )
+
 // PaymentService is a service to handle payment operations
 type PaymentService struct {
 	client preference.Client
 }
+
 // NewPaymentService creates a new PaymentService
 func NewPaymentService(cfg *config.Config) *PaymentService {
 	client := preference.NewClient(cfg)
@@ -20,48 +25,53 @@ func NewPaymentService(cfg *config.Config) *PaymentService {
 }
 
 // CreatePreference creates a new preference in MercadoPago API
-func (s *PaymentService) CreatePreference() (*preference.Response, error) {
+func (s *PaymentService) CreatePreference(order *dto.OrderDetailsDTO) (*preference.Response, error) {
 	request := preference.Request{
-		Items: []preference.ItemRequest{
-			{
-				ID: 		"1234",
-				Title:       "My product",
-				Description: "My product description",
-				PictureURL: "https://www.mercadopago.com/org-img/MP3/home/logomp3.gif",
-				CategoryID: "art",
-				CurrencyID: "MXN",
-				Quantity:    1,
-				UnitPrice:   75.76,
-			},
-		},
+		Items: generateItemRequest(order.Items),
 		Payer: &preference.PayerRequest{
-			Name:    "John",
-			Surname: "Doe",
-			Email:   "jhon_doe@email.com",
+			Name:  order.Name,
+			Email: order.Email,
+			Phone: &preference.PhoneRequest{
+				Number: order.Phone,
+			},
 		},
 		Shipments: &preference.ShipmentsRequest{
 			ReceiverAddress: &preference.ReceiverAddressRequest{
-				ZipCode:      "45020",
-				StreetName:   "A las Praderas",
-				StreetNumber: "4854",
+				StreetName:  order.StreetNumber,
+				Apartment:   order.Department,
+				StateName:   order.State,
+				ZipCode:     order.PostalCode,
+				CityName:    order.City,
 				CountryName: "Mexico",
-				StateName: "Jalisco",
-				CityName: "Guadalajara",
 			},
-			Cost: 100,
-			Dimensions: "30x30x30,500",
-			LocalPickup: false,
-			FreeShipping: false,
+			Cost:            order.DeliveryCost,
+			LocalPickup:     false,
+			FreeShipping:    false,
 			ExpressShipment: false,
-
+			DefaultShippingMethod: "standard",
 		},
-		Marketplace: "www.dipinto.com.mx",
+		Marketplace: "www.dipinto.com",
 	}
-	
+
 	resource, err := s.client.Create(context.Background(), request)
 	if err != nil {
 		log.Warnf("Error creating preference: %v", err)
 		return nil, err
 	}
 	return resource, nil
+}
+// generateItemRequest generates a list of ItemRequest from a list of OrderItemDTO
+func generateItemRequest(orderItems []dto.OrderItemDTO) []preference.ItemRequest {
+	items := make([]preference.ItemRequest, 0)
+	for _, item := range orderItems {
+		items = append(items, preference.ItemRequest{
+			ID:          fmt.Sprint(item.ID),
+			Title:       item.Name,
+			PictureURL:  item.ImageUrl,
+			CurrencyID:  "MXN",
+			Quantity:    item.Quantity,
+			UnitPrice:   item.Price,
+		})
+	}
+	return items
 }

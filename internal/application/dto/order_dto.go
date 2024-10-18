@@ -1,15 +1,16 @@
 package dto
 
-import "encoding/json"
+import "github.com/HouseCham/dipinto-api/internal/domain/model"
 
 type OrderDetailsDTO struct {
 	// Order Information
-	ID              uint64  `json:"id"`
-	OrderDate       string  `json:"order_date"`
-	Status          string  `json:"status"`
-	TotalAmount     float64 `json:"total_amount"`
-	DeliveryDate    string  `json:"delivery_date"`
-	PaymentMethod   string  `json:"payment_method"`
+	ID            uint64  `json:"id"`
+	OrderDate     string  `json:"order_date"`
+	Status        string  `json:"status"`
+	TotalAmount   float64 `json:"total_amount"`
+	DeliveryDate  string  `json:"delivery_date"`
+	PaymentMethod string  `json:"payment_method"`
+	// Shipping Information
 	TrackingID      string  `json:"tracking_id"`
 	ShippingCompany string  `json:"shipping_company"`
 	DeliveryCost    float64 `json:"delivery_cost"`
@@ -18,8 +19,9 @@ type OrderDetailsDTO struct {
 	Email string `json:"email"`
 	Phone string `json:"phone"`
 	// Address Information
-	AddressLine1 string `json:"address_line1"`
-	AddressLine2 string `json:"address_line2"`
+	StreetNumber string `json:"street_number"`
+	Department   string `json:"department"`
+	Neighborhood string `json:"neighborhood"`
 	City         string `json:"city"`
 	State        string `json:"state"`
 	PostalCode   string `json:"postal_code"`
@@ -33,9 +35,14 @@ type OrderItemDTO struct {
 	Quantity int     `json:"quantity"`
 	Price    float64 `json:"price"`
 	// Product Information
-	Images json.RawMessage `json:"images"`
-	Name   string          `json:"name"`
+	ImageUrl string `json:"image_url"`
+	Name     string `json:"name"`
 	// Product Size Information
 	Size     string  `json:"size"`
 	Discount float64 `json:"discount"`
+}
+
+type OrderAddressDTO struct {
+	AddressID  uint64        `json:"address_id"`
+	NewAddress model.Address `json:"new_address"`
 }
