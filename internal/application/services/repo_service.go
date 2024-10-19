@@ -337,6 +337,25 @@ func (r *RepositoryService) GetProductBySlug(slug string) (*model.Product, *[]mo
 	return &product, &sizes, nil
 }
 
+// GetCorrectOrderProducts returns a slice of product information for an order
+func (r *RepositoryService) GetCorrectOrderProducts(productIDs []uint64) (*[]dto.OrderItemDTO, error) {
+	query := r.repo.DB.Table("product_sizes ps").
+		Select("ps.id, p.name, p.slug, p.images, ps.size, ps.price, ps.discount").
+		Joins("INNER JOIN products p ON ps.product_id = p.id").
+		Where("ps.id IN (?)", productIDs).
+		Where("ps.is_available = true").
+		Where("ps.deleted_at IS NULL").
+		Where("p.deleted_at IS NULL")
+	
+	var products []dto.OrderItemDTO
+	dbResponse := query.Scan(&products)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve products from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &products, nil
+}
+
 //#region CATEGORY
 
 // GetAllCategories retrieves all categories from the database
@@ -504,6 +523,21 @@ func (r *RepositoryService) PatchOrderStatus(orderID uint64, status string) erro
 	return nil
 }
 
+// ValidateCouponCode validates a coupon code in the database
+func (r *RepositoryService) ValidateCouponCode(couponCode string) (*model.Coupon, error) {
+	var coupon model.Coupon
+	query := r.repo.DB.Table("coupons c").
+		Select("c.id, c.code, c.discount_type, c.discount_value, c.valid_from, c.valid_until, c.usage_limit, c.used_count").
+		Where("c.code = ?", couponCode)
+
+	dbResponse := query.First(&coupon)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve coupon from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &coupon, nil
+}
+
 // #region ADMIN DASHBOARD
 
 // GetAdminCardsData retrieves the data for the admin dashboard cards (total pending orders, total sales, total expenses, total customers)
@@ -613,7 +647,7 @@ func (r *RepositoryService) DeleteCartProduct(cartProductID uint64, cartID uint6
 func (r *RepositoryService) GetCartProductsByCartId(cartID uint64) (*[]dto.CartProductDTO, error) {
 	var cartProducts []dto.CartProductDTO
 	query := r.repo.DB.Table("cart_products cp").
-		Select("cp.id, p.name, p.images, p.slug, ps.size, ps.price, ps.discount, cp.quantity").
+		Select("cp.id, ps.id as product_id, p.name, p.images, p.slug, ps.size, ps.price, ps.discount, cp.quantity").
 		Joins("INNER JOIN product_sizes ps ON cp.product_id = ps.id").
 		Joins("INNER JOIN products p ON ps.product_id = p.id").
 		Where("cp.cart_id = ?", cartID)

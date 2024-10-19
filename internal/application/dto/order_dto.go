@@ -1,6 +1,10 @@
 package dto
 
-import "github.com/HouseCham/dipinto-api/internal/domain/model"
+import (
+	"encoding/json"
+
+	"github.com/HouseCham/dipinto-api/internal/domain/model"
+)
 
 type OrderDetailsDTO struct {
 	// Order Information
@@ -35,8 +39,9 @@ type OrderItemDTO struct {
 	Quantity int     `json:"quantity"`
 	Price    float64 `json:"price"`
 	// Product Information
-	ImageUrl string `json:"image_url"`
-	Name     string `json:"name"`
+	ImageUrl string          `json:"image_url"`
+	Images   json.RawMessage `json:"images"`
+	Name     string          `json:"name"`
 	// Product Size Information
 	Size     string  `json:"size"`
 	Discount float64 `json:"discount"`
@@ -45,4 +50,20 @@ type OrderItemDTO struct {
 type OrderAddressDTO struct {
 	AddressID  uint64        `json:"address_id"`
 	NewAddress model.Address `json:"new_address"`
+}
+
+type OrderProductsInformationDTO struct {
+	Products []ValidOrderProductDTO `json:"products"`
+	Coupon   string                 `json:"coupon"`
+}
+
+type ValidOrderProductDTO struct {
+	ProductID uint64 `json:"product_id"`
+	Quantity  int    `json:"quantity"`
+}
+
+type OrderProductsToApplyDTO struct {
+	Products []OrderItemDTO `json:"products"`
+	Coupon   *model.Coupon  `json:"coupon"`
+	Subtotal float64        `json:"subtotal"`
 }

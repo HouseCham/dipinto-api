@@ -48,7 +48,7 @@ func (s *PaymentService) CreatePreference(order *dto.OrderDetailsDTO) (*preferen
 			LocalPickup:     false,
 			FreeShipping:    false,
 			ExpressShipment: false,
-			DefaultShippingMethod: "standard",
+			// DefaultShippingMethod: "standard",
 		},
 		Marketplace: "www.dipinto.com",
 	}

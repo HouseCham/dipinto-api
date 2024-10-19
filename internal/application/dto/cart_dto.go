@@ -8,12 +8,13 @@ type CartDTO struct {
 }
 
 type CartProductDTO struct {
-	ID       uint64          `json:"id"`
-	Name     string          `json:"name"`
-	Slug     string          `json:"slug"`
-	Size     string          `json:"size"`
-	Price    float64         `json:"price"`
-	Discount float64         `json:"discount"`
-	Quantity int             `json:"quantity"`
-	Images   json.RawMessage `json:"images"`
+	ID        uint64          `json:"id"`
+	ProductID uint64          `json:"product_id"`
+	Name      string          `json:"name"`
+	Slug      string          `json:"slug"`
+	Size      string          `json:"size"`
+	Price     float64         `json:"price"`
+	Discount  float64         `json:"discount"`
+	Quantity  int             `json:"quantity"`
+	Images    json.RawMessage `json:"images"`
 }

@@ -537,17 +537,17 @@ func (h *ClientHandler) RemoveProductFromCart(c fiber.Ctx) error {
 func (h *ClientHandler) GenerateMercadoPagoPreference(c fiber.Ctx) error {
 	var request dto.OrderDetailsDTO
 	if err := c.Bind().JSON(&request); err != nil {
-		log.Warnf("Failed to parse cart product request body: %v", err)
+		log.Warnf("Failed to parse order request body: %v", err)
 		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
 			StatusCode: fiber.StatusBadRequest,
-			Message:    "Error parsing cart product request body",
+			Message:    "Error parsing order request body",
 		})
 	}
 	pref, err := h.PaymentService.CreatePreference(&request)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
 			StatusCode: fiber.StatusInternalServerError,
-			Message:    "Failed to create preference in MercadoPago API",
+			Message:    err.Error(),
 		})
 	}
 	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
@@ -625,5 +625,71 @@ func (h *ClientHandler) GetOrderCustomerInformation(c fiber.Ctx) error {
 		StatusCode: fiber.StatusOK,
 		Message:    "User retrieved successfully",
 		Data:       user,
+	})
+}
+// SetOrderProductsInformation is a handler function that retrieves the products information for the order
+func (h *ClientHandler) SetOrderProductsInformation(c fiber.Ctx) error {
+	var request dto.OrderProductsInformationDTO
+	if err := c.Bind().JSON(&request); err != nil {
+		log.Warnf("Failed to parse order product request body: %v", err)
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Error parsing order product request body",
+		})
+	}
+	// Generate slice uint64[] with the product IDs
+	var productIDs []uint64
+	for _, product := range request.Products {
+		productIDs = append(productIDs, product.ProductID)
+	}
+
+	// Retrieve the products from the database
+	products, err := h.RepositoryService.GetCorrectOrderProducts(productIDs)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve products information",
+		})
+	}
+
+	// Assign the products quantity from the request where the product ID matches
+	for i, product := range *products {
+		for _, orderProduct := range request.Products {
+			if product.ID == orderProduct.ProductID {
+				(*products)[i].Quantity = orderProduct.Quantity
+			}
+		}
+	}
+
+	var response dto.OrderProductsToApplyDTO
+	coupon, _ := h.RepositoryService.ValidateCouponCode(request.Coupon)
+	if coupon != nil {
+		response.Coupon = coupon
+	}
+	// Prepare the order products information
+	for _, product := range *products {
+		var productPrice float64
+		if product.Discount > 0 {
+			productPrice = product.Discount * float64(product.Quantity)
+		} else if coupon != nil {
+			productPrice = utils.ApplyCouponDiscount(product.Price, float64(product.Quantity), coupon)
+		} else {
+			productPrice = product.Price * float64(product.Quantity)
+		}
+		response.Products = append(response.Products, dto.OrderItemDTO{
+			ID: 	 product.ID,
+			Price:  productPrice,
+			Images: product.Images,
+			Name:  product.Name,
+			Size: product.Size,
+			Quantity: product.Quantity,
+		})
+		response.Subtotal += productPrice
+	}
+
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusOK,
+		Message:    "Products retrieved successfully",
+		Data:       response,
 	})
 }

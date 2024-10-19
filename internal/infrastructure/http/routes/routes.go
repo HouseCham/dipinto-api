@@ -36,6 +36,7 @@ func SetupRoutes(app *fiber.App, adminHandler *handlers.AdminHandler, clientHand
 	// === ORDERS ENDPOINTS ===
 	clientRoutes.Post("/order/address-info", clientHandler.PrepareOrderAddressInformation)
 	clientRoutes.Get("/order/user-info", clientHandler.GetOrderCustomerInformation)
+	clientRoutes.Post("/order/products-info", clientHandler.SetOrderProductsInformation)
 	clientRoutes.Post("/order/mercado-pago", clientHandler.GenerateMercadoPagoPreference)
 	
 	/* ========== ADMIN  ========== */
