@@ -50,7 +50,7 @@ func (s *PaymentService) CreatePreference(order *dto.OrderDetailsDTO) (*preferen
 			ExpressShipment: false,
 			// DefaultShippingMethod: "standard",
 		},
-		Marketplace: "www.dipinto.com",
+		Marketplace: "www.dipinto.com.mx",
 	}
 
 	resource, err := s.client.Create(context.Background(), request)

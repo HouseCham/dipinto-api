@@ -538,6 +538,40 @@ func (r *RepositoryService) ValidateCouponCode(couponCode string) (*model.Coupon
 	return &coupon, nil
 }
 
+// InsertOrder inserts a new order into the database
+func (r *RepositoryService) InsertOrder(newOrder *model.Order, items *[]model.OrderItem) (uint64, error) {
+	// start a new transaction
+	tx := r.repo.DB.Begin()
+	if tx.Error != nil {
+		log.Warnf("Failed to begin transaction: %v", tx.Error)
+		return 0, tx.Error
+	}
+	// Insert the order
+	dbResponse := tx.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&newOrder)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to insert order into the database: %v", dbResponse.Error)
+		tx.Rollback()
+		return 0, dbResponse.Error
+	}
+	// Insert the order items
+	for _, item := range *items {
+		item.OrderID = newOrder.ID
+		dbResponse := tx.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&item)
+		if dbResponse.Error != nil {
+			log.Warnf("Failed to insert order item into the database: %v", dbResponse.Error)
+			tx.Rollback()
+			return 0, dbResponse.Error
+		}
+	}
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		log.Warnf("Failed to commit transaction: %v", err)
+		tx.Rollback()
+		return 0, err
+	}
+	return newOrder.ID, nil
+}
+
 // #region ADMIN DASHBOARD
 
 // GetAdminCardsData retrieves the data for the admin dashboard cards (total pending orders, total sales, total expenses, total customers)

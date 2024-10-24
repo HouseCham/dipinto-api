@@ -2,25 +2,30 @@ package model
 
 import "time"
 
+// Order represents an order in the orders table.
 type Order struct {
-	ID            uint64    `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID        uint64    `gorm:"not null" json:"user_id"`
-	AddressID     uint64    `gorm:"not null" json:"address_id"`
-	OrderDate     time.Time `gorm:"autoCreateTime" json:"order_date"`
-	DeliveryDate  time.Time `json:"delivery_date"`
-	Status        string    `gorm:"not null;check:status IN ('pending','shipped','delivered','cancelled')" json:"status"`
-	PaymentMethod string    `gorm:"not null;check:payment_method IN ('cash', 'card)" json:"payment_method"`
-	TotalAmount   float64   `gorm:"not null;type:numeric(10,2)" json:"total_amount"`
+	ID              uint64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID          uint64     `gorm:"not null" json:"user_id"`
+	AddressID       uint64     `gorm:"not null" json:"address_id"`
+	CouponID        uint64     `gorm:"index" json:"coupon_id,omitempty"`
+	OrderDate       time.Time  `gorm:"autoCreateTime" json:"order_date"`
+	DeliveryDate    *time.Time `gorm:"index" json:"delivery_date,omitempty"`
+	TotalAmount     float64    `gorm:"type:numeric(10,2);not null" json:"total_amount"`
+	TrackingID      string     `gorm:"type:text" json:"tracking_id,omitempty"`
+	DeliveryCost    float64    `gorm:"type:numeric(10,2)" json:"delivery_cost,omitempty"`
+	ShippingCompany string     `gorm:"type:text" json:"shipping_company,omitempty"`
+	Status          string     `gorm:"type:text;check:status IN ('pending', 'shipped', 'delivered', 'cancelled');not null" json:"status"`
+	PaymentMethod   string     `gorm:"type:text;check:payment_method IN ('cash', 'card');not null" json:"payment_method"`
 }
 
+// OrderItem represents an item in an order in the order_items table.
 type OrderItem struct {
-	ID        uint64  `gorm:"primaryKey;autoIncrement"`
-	OrderID   uint64  `gorm:"not null"`
-	Order     Order   `gorm:"foreignKey:OrderID"`
-	ProductID uint64  `gorm:"not null"`
-	Product   Product `gorm:"foreignKey:ProductID"`
-	Quantity  int     `gorm:"not null"`
-	Price     float64 `gorm:"not null;type:numeric(10,2)"`
+	ID        uint64   `gorm:"primaryKey;autoIncrement" json:"id"`
+	OrderID   uint64   `gorm:"not null" json:"order_id"`
+	ProductID uint64   `gorm:"not null" json:"product_id"`
+	Quantity  int      `gorm:"not null" json:"quantity"`
+	Price     float64  `gorm:"type:numeric(10,2);not null" json:"price"`
+	Discount  *float64 `gorm:"type:numeric" json:"discount,omitempty"`
 }
 
 type OrderListItem struct {

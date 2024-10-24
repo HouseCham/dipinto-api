@@ -550,12 +550,13 @@ func (h *ClientHandler) GenerateMercadoPagoPreference(c fiber.Ctx) error {
 			Message:    err.Error(),
 		})
 	}
-	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
-		StatusCode: fiber.StatusOK,
+	return c.Status(fiber.StatusCreated).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusCreated,
 		Message:    "Preference created successfully",
 		Data:       pref,
 	})
 }
+
 // PrepareOrderAddressInformation is a handler function that prepares the order address information
 func (h *ClientHandler) PrepareOrderAddressInformation(c fiber.Ctx) error {
 	claims := c.Locals("claims").(*middleware.Claims)
@@ -627,6 +628,7 @@ func (h *ClientHandler) GetOrderCustomerInformation(c fiber.Ctx) error {
 		Data:       user,
 	})
 }
+
 // SetOrderProductsInformation is a handler function that retrieves the products information for the order
 func (h *ClientHandler) SetOrderProductsInformation(c fiber.Ctx) error {
 	var request dto.OrderProductsInformationDTO
@@ -670,18 +672,18 @@ func (h *ClientHandler) SetOrderProductsInformation(c fiber.Ctx) error {
 	for _, product := range *products {
 		var productPrice float64
 		if product.Discount > 0 {
-			productPrice = product.Discount * float64(product.Quantity)
+			productPrice = product.Discount
 		} else if coupon != nil {
-			productPrice = utils.ApplyCouponDiscount(product.Price, float64(product.Quantity), coupon)
+			productPrice = utils.ApplyCouponDiscount(product.Price, coupon)
 		} else {
-			productPrice = product.Price * float64(product.Quantity)
+			productPrice = product.Price
 		}
 		response.Products = append(response.Products, dto.OrderItemDTO{
-			ID: 	 product.ID,
-			Price:  productPrice,
-			Images: product.Images,
-			Name:  product.Name,
-			Size: product.Size,
+			ID:       product.ID,
+			Price:    productPrice,
+			Images:   product.Images,
+			Name:     product.Name,
+			Size:     product.Size,
 			Quantity: product.Quantity,
 		})
 		response.Subtotal += productPrice
@@ -691,5 +693,78 @@ func (h *ClientHandler) SetOrderProductsInformation(c fiber.Ctx) error {
 		StatusCode: fiber.StatusOK,
 		Message:    "Products retrieved successfully",
 		Data:       response,
+	})
+}
+
+// InsertOrder is a handler function that inserts a new order into the database
+func (h *ClientHandler) CreateOrder(c fiber.Ctx) error {
+	claims := c.Locals("claims").(*middleware.Claims)
+	userID := utils.StringToUint64(claims.ID)
+
+	var request dto.OrderDbDTO
+	if err := c.Bind().JSON(&request); err != nil {
+		log.Warnf("Failed to parse order request body: %v", err)
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Error parsing order request body",
+		})
+	}
+	// Validate the request body
+	errors := h.ModelService.ValidateRequestBody(request)
+	if errors != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Invalid request body",
+			Data:       errors,
+		})
+	}
+	// Validate the request items
+	for _, item := range request.Items {
+		errors = h.ModelService.ValidateRequestBody(item)
+		if errors != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+				StatusCode: fiber.StatusBadRequest,
+				Message:    "Invalid request body",
+				Data:       errors,
+			})
+		}
+	}
+
+	orderDB := model.Order{
+		UserID:        userID,
+		AddressID:     uint64(request.AddressID),
+		OrderDate:     time.Now(),
+		Status:        request.Status,
+		TotalAmount:   request.TotalAmount,
+		PaymentMethod: request.PaymentMethod,
+		CouponID:      request.CouponID,
+		TrackingID:    "",
+		DeliveryCost: request.DeliveryCost,
+		ShippingCompany: request.ShippingCompany,
+	}
+	orderItemsDB := []model.OrderItem{}
+	for _, item := range request.Items {
+		orderItemsDB = append(orderItemsDB, model.OrderItem{
+			ProductID: uint64(item.ProductID),
+			Quantity:  item.Quantity,
+			Price:     item.Price,
+			Discount: nil,
+		})
+	}
+	// Insert the order into the database
+	orderID, err := h.RepositoryService.InsertOrder(&orderDB, &orderItemsDB)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to create order in the database",
+		})
+	}
+
+	// Insert the order items into the database
+
+	return c.Status(fiber.StatusCreated).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusCreated,
+		Message:    "Order created successfully",
+		Data:       orderID,
 	})
 }

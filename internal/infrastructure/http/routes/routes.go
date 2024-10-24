@@ -38,6 +38,7 @@ func SetupRoutes(app *fiber.App, adminHandler *handlers.AdminHandler, clientHand
 	clientRoutes.Get("/order/user-info", clientHandler.GetOrderCustomerInformation)
 	clientRoutes.Post("/order/products-info", clientHandler.SetOrderProductsInformation)
 	clientRoutes.Post("/order/mercado-pago", clientHandler.GenerateMercadoPagoPreference)
+	clientRoutes.Post("/order/create", clientHandler.CreateOrder)
 	
 	/* ========== ADMIN  ========== */
 	adminRoutes := app.Group("/api/v1/admin")
