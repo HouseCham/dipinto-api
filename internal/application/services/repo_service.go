@@ -337,6 +337,25 @@ func (r *RepositoryService) GetProductBySlug(slug string) (*model.Product, *[]mo
 	return &product, &sizes, nil
 }
 
+// GetCorrectOrderProducts returns a slice of product information for an order
+func (r *RepositoryService) GetCorrectOrderProducts(productIDs []uint64) (*[]dto.OrderItemDTO, error) {
+	query := r.repo.DB.Table("product_sizes ps").
+		Select("ps.id, p.name, p.slug, p.images, ps.size, ps.price, ps.discount").
+		Joins("INNER JOIN products p ON ps.product_id = p.id").
+		Where("ps.id IN (?)", productIDs).
+		Where("ps.is_available = true").
+		Where("ps.deleted_at IS NULL").
+		Where("p.deleted_at IS NULL")
+	
+	var products []dto.OrderItemDTO
+	dbResponse := query.Scan(&products)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve products from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &products, nil
+}
+
 //#region CATEGORY
 
 // GetAllCategories retrieves all categories from the database
@@ -504,6 +523,55 @@ func (r *RepositoryService) PatchOrderStatus(orderID uint64, status string) erro
 	return nil
 }
 
+// ValidateCouponCode validates a coupon code in the database
+func (r *RepositoryService) ValidateCouponCode(couponCode string) (*model.Coupon, error) {
+	var coupon model.Coupon
+	query := r.repo.DB.Table("coupons c").
+		Select("c.id, c.code, c.discount_type, c.discount_value, c.valid_from, c.valid_until, c.usage_limit, c.used_count").
+		Where("c.code = ?", couponCode)
+
+	dbResponse := query.First(&coupon)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve coupon from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &coupon, nil
+}
+
+// InsertOrder inserts a new order into the database
+func (r *RepositoryService) InsertOrder(newOrder *model.Order, items *[]model.OrderItem) (uint64, error) {
+	// start a new transaction
+	tx := r.repo.DB.Begin()
+	if tx.Error != nil {
+		log.Warnf("Failed to begin transaction: %v", tx.Error)
+		return 0, tx.Error
+	}
+	// Insert the order
+	dbResponse := tx.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&newOrder)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to insert order into the database: %v", dbResponse.Error)
+		tx.Rollback()
+		return 0, dbResponse.Error
+	}
+	// Insert the order items
+	for _, item := range *items {
+		item.OrderID = newOrder.ID
+		dbResponse := tx.Omit("ID", "CreatedAt", "UpdatedAt", "DeletedAt").Create(&item)
+		if dbResponse.Error != nil {
+			log.Warnf("Failed to insert order item into the database: %v", dbResponse.Error)
+			tx.Rollback()
+			return 0, dbResponse.Error
+		}
+	}
+	// Commit the transaction
+	if err := tx.Commit().Error; err != nil {
+		log.Warnf("Failed to commit transaction: %v", err)
+		tx.Rollback()
+		return 0, err
+	}
+	return newOrder.ID, nil
+}
+
 // #region ADMIN DASHBOARD
 
 // GetAdminCardsData retrieves the data for the admin dashboard cards (total pending orders, total sales, total expenses, total customers)
@@ -613,7 +681,7 @@ func (r *RepositoryService) DeleteCartProduct(cartProductID uint64, cartID uint6
 func (r *RepositoryService) GetCartProductsByCartId(cartID uint64) (*[]dto.CartProductDTO, error) {
 	var cartProducts []dto.CartProductDTO
 	query := r.repo.DB.Table("cart_products cp").
-		Select("cp.id, p.name, p.images, p.slug, ps.size, ps.price, ps.discount, cp.quantity").
+		Select("cp.id, ps.id as product_id, p.name, p.images, p.slug, ps.size, ps.price, ps.discount, cp.quantity").
 		Joins("INNER JOIN product_sizes ps ON cp.product_id = ps.id").
 		Joins("INNER JOIN products p ON ps.product_id = p.id").
 		Where("cp.cart_id = ?", cartID)
@@ -729,4 +797,15 @@ func (r *RepositoryService) GetAddressesListByUserId(userID uint64) (*[]model.Ad
 		return nil, dbResponse.Error
 	}
 	return &addresses, nil
+}
+
+// GetAddressById retrieves an address from the database by its ID
+func (r *RepositoryService) GetAddressById(addressID uint64, userID uint64) (*model.Address, error) {
+	var address model.Address
+	dbResponse := r.repo.DB.Where("id = ?", addressID).Where("user_id = ?", userID).Where("deleted_at IS NULL").Omit("CreatedAt", "UpdatedAt", "DeletedAt").First(&address)
+	if dbResponse.Error != nil {
+		log.Warnf("Failed to retrieve address from the database: %v", dbResponse.Error)
+		return nil, dbResponse.Error
+	}
+	return &address, nil
 }

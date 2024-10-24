@@ -15,6 +15,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/log"
 	"github.com/gofiber/fiber/v3/middleware/cors"
+	mercadopago "github.com/mercadopago/sdk-go/pkg/config"
 )
 
 func main() {
@@ -59,11 +60,16 @@ func main() {
 
 // injectDependencies injects the dependencies into the handlers
 func injectDependencies(cfg *config.Config, database *db.Database, v *validator.Validate) (*handlers.AdminHandler, *handlers.ClientHandler) {
+	paymentCfg, err := mercadopago.New(cfg.Payment.MercadoPago.AccessToken)
+	if err != nil {
+		log.Fatalf("Failed to set up MercadoPago configuration: %v", err)
+	}
 	// Set up the services for dependency injection
 	authService := services.NewAuthService(auth.SetUpAuthService(cfg))
 	middlewareService := services.NewMiddlewareService(middleware.SetupMiddlewareService(cfg))
 	repositoryService := services.NewRepositoryService(database)
 	modelService := services.NewModelService(v)
+	paymentService := services.NewPaymentService(paymentCfg)
 	// Set up the http handlers
 	return &handlers.AdminHandler{
 			MiddlewareService: middlewareService,
@@ -75,5 +81,6 @@ func injectDependencies(cfg *config.Config, database *db.Database, v *validator.
 			RepositoryService: repositoryService,
 			ModelService:      modelService,
 			AuthService:       authService,
+			PaymentService:    paymentService,
 		}
 }

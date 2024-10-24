@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/HouseCham/dipinto-api/internal/application/dto"
 	"github.com/HouseCham/dipinto-api/internal/application/services"
 	"github.com/HouseCham/dipinto-api/internal/domain/dependencies/middleware"
 	"github.com/HouseCham/dipinto-api/internal/domain/model"
@@ -17,6 +18,7 @@ type ClientHandler struct {
 	RepositoryService *services.RepositoryService
 	ModelService      *services.ModelService
 	AuthService       *services.AuthService
+	PaymentService    *services.PaymentService
 }
 
 // #region Categories
@@ -524,5 +526,245 @@ func (h *ClientHandler) RemoveProductFromCart(c fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
 		StatusCode: fiber.StatusOK,
 		Message:    "Product removed from cart successfully",
+	})
+}
+
+//#endregion Carts
+
+// #region Orders
+
+// GenerateMercadoPagoPreference is a handler function that generates a new preference in MercadoPago API
+func (h *ClientHandler) GenerateMercadoPagoPreference(c fiber.Ctx) error {
+	var request dto.OrderDetailsDTO
+	if err := c.Bind().JSON(&request); err != nil {
+		log.Warnf("Failed to parse order request body: %v", err)
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Error parsing order request body",
+		})
+	}
+	pref, err := h.PaymentService.CreatePreference(&request)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    err.Error(),
+		})
+	}
+	return c.Status(fiber.StatusCreated).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusCreated,
+		Message:    "Preference created successfully",
+		Data:       pref,
+	})
+}
+
+// PrepareOrderAddressInformation is a handler function that prepares the order address information
+func (h *ClientHandler) PrepareOrderAddressInformation(c fiber.Ctx) error {
+	claims := c.Locals("claims").(*middleware.Claims)
+	userID := utils.StringToUint64(claims.ID)
+
+	var request dto.OrderAddressDTO
+	if err := c.Bind().JSON(&request); err != nil {
+		log.Warnf("Failed to parse address request body: %v", err)
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Error parsing address request body",
+		})
+	}
+	// Check if the address ID is 0 to insert a new address
+	if request.AddressID == 0 {
+		// Validate the request body
+		if errors := h.ModelService.ValidateRequestBody(request.NewAddress); errors != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+				StatusCode: fiber.StatusBadRequest,
+				Message:    "Invalid request body",
+				Data:       errors,
+			})
+		}
+		// Insert the address into the database
+		addressID, err := h.RepositoryService.InsertAddress(&request.NewAddress)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+				StatusCode: fiber.StatusInternalServerError,
+				Message:    "Failed to create address in the database",
+			})
+		}
+		return c.Status(fiber.StatusCreated).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusCreated,
+			Message:    "Address created successfully",
+			Data:       addressID,
+		})
+	}
+
+	// Retrieve the address from the database
+	address, err := h.RepositoryService.GetAddressById(request.AddressID, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve address information",
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusOK,
+		Message:    "Address retrieved successfully",
+		Data:       address,
+	})
+}
+
+// GetOrderCustomerInformation is a handler function that retrieves the customer's information for the order
+func (h *ClientHandler) GetOrderCustomerInformation(c fiber.Ctx) error {
+	claims := c.Locals("claims").(*middleware.Claims)
+	userID := utils.StringToUint64(claims.ID)
+	// Retrieve the user from the database
+	user, err := h.RepositoryService.GetUserById(userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve user information",
+		})
+	}
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusOK,
+		Message:    "User retrieved successfully",
+		Data:       user,
+	})
+}
+
+// SetOrderProductsInformation is a handler function that retrieves the products information for the order
+func (h *ClientHandler) SetOrderProductsInformation(c fiber.Ctx) error {
+	var request dto.OrderProductsInformationDTO
+	if err := c.Bind().JSON(&request); err != nil {
+		log.Warnf("Failed to parse order product request body: %v", err)
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Error parsing order product request body",
+		})
+	}
+	// Generate slice uint64[] with the product IDs
+	var productIDs []uint64
+	for _, product := range request.Products {
+		productIDs = append(productIDs, product.ProductID)
+	}
+
+	// Retrieve the products from the database
+	products, err := h.RepositoryService.GetCorrectOrderProducts(productIDs)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to retrieve products information",
+		})
+	}
+
+	// Assign the products quantity from the request where the product ID matches
+	for i, product := range *products {
+		for _, orderProduct := range request.Products {
+			if product.ID == orderProduct.ProductID {
+				(*products)[i].Quantity = orderProduct.Quantity
+			}
+		}
+	}
+
+	var response dto.OrderProductsToApplyDTO
+	coupon, _ := h.RepositoryService.ValidateCouponCode(request.Coupon)
+	if coupon != nil {
+		response.Coupon = coupon
+	}
+	// Prepare the order products information
+	for _, product := range *products {
+		var productPrice float64
+		if product.Discount > 0 {
+			productPrice = product.Discount
+		} else if coupon != nil {
+			productPrice = utils.ApplyCouponDiscount(product.Price, coupon)
+		} else {
+			productPrice = product.Price
+		}
+		response.Products = append(response.Products, dto.OrderItemDTO{
+			ID:       product.ID,
+			Price:    productPrice,
+			Images:   product.Images,
+			Name:     product.Name,
+			Size:     product.Size,
+			Quantity: product.Quantity,
+		})
+		response.Subtotal += productPrice
+	}
+
+	return c.Status(fiber.StatusOK).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusOK,
+		Message:    "Products retrieved successfully",
+		Data:       response,
+	})
+}
+
+// InsertOrder is a handler function that inserts a new order into the database
+func (h *ClientHandler) CreateOrder(c fiber.Ctx) error {
+	claims := c.Locals("claims").(*middleware.Claims)
+	userID := utils.StringToUint64(claims.ID)
+
+	var request dto.OrderDbDTO
+	if err := c.Bind().JSON(&request); err != nil {
+		log.Warnf("Failed to parse order request body: %v", err)
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Error parsing order request body",
+		})
+	}
+	// Validate the request body
+	errors := h.ModelService.ValidateRequestBody(request)
+	if errors != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusBadRequest,
+			Message:    "Invalid request body",
+			Data:       errors,
+		})
+	}
+	// Validate the request items
+	for _, item := range request.Items {
+		errors = h.ModelService.ValidateRequestBody(item)
+		if errors != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(model.HTTPResponse{
+				StatusCode: fiber.StatusBadRequest,
+				Message:    "Invalid request body",
+				Data:       errors,
+			})
+		}
+	}
+
+	orderDB := model.Order{
+		UserID:        userID,
+		AddressID:     uint64(request.AddressID),
+		OrderDate:     time.Now(),
+		Status:        request.Status,
+		TotalAmount:   request.TotalAmount,
+		PaymentMethod: request.PaymentMethod,
+		CouponID:      request.CouponID,
+		TrackingID:    "",
+		DeliveryCost: request.DeliveryCost,
+		ShippingCompany: request.ShippingCompany,
+	}
+	orderItemsDB := []model.OrderItem{}
+	for _, item := range request.Items {
+		orderItemsDB = append(orderItemsDB, model.OrderItem{
+			ProductID: uint64(item.ProductID),
+			Quantity:  item.Quantity,
+			Price:     item.Price,
+			Discount: nil,
+		})
+	}
+	// Insert the order into the database
+	orderID, err := h.RepositoryService.InsertOrder(&orderDB, &orderItemsDB)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(model.HTTPResponse{
+			StatusCode: fiber.StatusInternalServerError,
+			Message:    "Failed to create order in the database",
+		})
+	}
+
+	// Insert the order items into the database
+
+	return c.Status(fiber.StatusCreated).JSON(model.HTTPResponse{
+		StatusCode: fiber.StatusCreated,
+		Message:    "Order created successfully",
+		Data:       orderID,
 	})
 }

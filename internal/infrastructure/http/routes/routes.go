@@ -33,17 +33,22 @@ func SetupRoutes(app *fiber.App, adminHandler *handlers.AdminHandler, clientHand
 	clientRoutes.Get("/cart", clientHandler.GetCustomerCart)
 	clientRoutes.Post("/cart/add-product", clientHandler.AddProductToCart)
 	clientRoutes.Delete("/cart/remove-product/:id", clientHandler.RemoveProductFromCart)
+	// === ORDERS ENDPOINTS ===
+	clientRoutes.Post("/order/address-info", clientHandler.PrepareOrderAddressInformation)
+	clientRoutes.Get("/order/user-info", clientHandler.GetOrderCustomerInformation)
+	clientRoutes.Post("/order/products-info", clientHandler.SetOrderProductsInformation)
+	clientRoutes.Post("/order/mercado-pago", clientHandler.GenerateMercadoPagoPreference)
+	clientRoutes.Post("/order/create", clientHandler.CreateOrder)
 	
 	/* ========== ADMIN  ========== */
-	adminRoutes := app.Group("/api/v1")
+	adminRoutes := app.Group("/api/v1/admin")
 	adminRoutes.Post("/users/login", adminHandler.LoginAdmin)
-	// === MIDDLEWARE ===
-	adminRoutes.Use(adminHandler.MiddlewareService.VerifyJWT())
 
+	// === ADMIN JWT ENDPOINTS ===
 	adminRoutes.Use(adminHandler.MiddlewareService.VerifyAdmin())
-	adminRoutes.Get("/admin/dashboard", adminHandler.GetAdminDashboard)
+	adminRoutes.Get("/dashboard", adminHandler.GetAdminDashboard)
 	// === PRODUCTS ENDPOINTS ===
-	adminRoutes.Get("/products/get-products/admin", adminHandler.GetAllProductsAdmin)
+	adminRoutes.Get("/products/get-products", adminHandler.GetAllProductsAdmin)
 	adminRoutes.Post("/products/insert", adminHandler.InsertProduct)
 	adminRoutes.Put("/products/update", adminHandler.UpdateProduct)
 	// === CATEGORIES ENDPOINTS ===
